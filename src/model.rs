@@ -5,6 +5,11 @@ use neuroflow::FeedForward;
 use neuroflow::data::DataSet;
 
 
+fn log_sigmoid(x: f64) -> f64 {
+    -((1.0 + (-x).exp()).ln())
+}
+
+
 #[pyclass]
 pub struct Model {
     pub dim: usize,
@@ -26,7 +31,7 @@ impl Model {
             epochs,
             learning_rate,
             vocab: None,
-            net: FeedForward::new(&[window_size, dim, window_size])
+            net: FeedForward::new(&[2, dim, 1])
         }
     }
 
@@ -44,14 +49,6 @@ impl Model {
         );
         self.set_vocab(vocab);
 
-        let mut data: DataSet = DataSet::new();
-        (0..documents.len()).into_par_iter().for_each(|i| {
-            let doc = &documents[i];
-            let ids: Vec<usize> = self.vocab.as_ref().unwrap().get_ids(doc.clone());
-            data.push(&ids, &ids);
-        });
-
-        
         // Here you would implement the training logic using the vocab and the documents.
         // For now, we just return Ok to indicate success.
         Ok(())
