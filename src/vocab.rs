@@ -1,5 +1,6 @@
 use rayon::prelude::*;
 
+
 pub struct Vocab {
     pub size: usize,
     pub words: Vec<String>,
@@ -21,6 +22,10 @@ impl Vocab {
             vocab.add_word(word);
         });
         vocab
+    }
+
+    pub fn get_ids(&self, words: Vec<String>) -> Vec<usize> {
+        words.par_iter().map(|word| self.word_to_id[word]).collect()
     }
 
     pub fn add_word(&mut self, word: String) {
