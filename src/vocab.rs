@@ -14,7 +14,7 @@ impl Vocab {
             size: 0,
             words: Vec::new(),
             word_to_id: std::collections::HashMap::new(),
-            word_to_freq: std::collections::HashMap::new(),
+            valid_ids: Vec::new(),
         }
     }
 
@@ -45,7 +45,7 @@ impl Vocab {
     }
 
     fn subsample(&self) -> Vec<usize> {
-        let n: usize = self.words.len();
+        let n: usize = self.size;
         let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
         lst.par_iter().for_each(|word| { *word_to_freq.entry(*word).or_insert(0 as f64) += 1 as f64 });
         word_to_freq.par_iter().for_each(|(_, val)| *val /= n as f64);
