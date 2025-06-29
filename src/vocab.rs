@@ -5,7 +5,6 @@ pub struct Vocab {
     pub size: usize,
     pub words: Vec<String>,
     pub word_to_id: std::collections::HashMap<String, usize>,
-    pub valid_ids: Vec<usize>,
 }
 
 impl Vocab {
@@ -14,16 +13,23 @@ impl Vocab {
             size: 0,
             words: Vec::new(),
             word_to_id: std::collections::HashMap::new(),
-            valid_ids: Vec::new(),
         }
     }
 
     pub fn from_words(words: Vec<String>) -> Self {
         let mut vocab = Vocab::new();
+        let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
         words.par_iter().for_each(|word| {
             vocab.add_word(word);
+            word_to_freq
+                .entry(vocab.word_to_id[word])
+                .and_modify(|e| *e += 1.0)
+                .or_insert(1.0);
         });
-        self.valid_ids = vocab.subsample();
+        vocab.word_to_id = words
+            .par_iter()
+            .map(|word, idx| (word, vocab.subsample(word, &word_to_freq)))
+            .collect();
         vocab
     }
 
@@ -44,17 +50,29 @@ impl Vocab {
         self.word_to_id.get(word).cloned()
     }
 
-    fn subsample(&self) -> Vec<usize> {
-        let n: usize = self.size;
-        let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
-        lst.par_iter().for_each(|word| { *word_to_freq.entry(*word).or_insert(0 as f64) += 1 as f64 });
-        word_to_freq.par_iter().for_each(|(_, val)| *val /= n as f64);
-        let mut rng = rand::thread_rng();
-        let indices: Vec<usize> = word_to_freq.par_iter().map(|k,v| { 
-            let p: f64 = ((v / 0.001).sqrt() + 1) * (0.001 / v);
-            let r: f64 = rng.gen();
-            if r < p { *k }
-        }).collect();
-        indices
+    fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option>usize> {
+        if let Some(&id) = self.word_to_id.get(word) {
+            let freq = word_to_freq.get(&id).unwrap_or(&0.0);
+            let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
+            let r: f64 = rand::random();
+            if r < p {
+                return Some(id);
+            }
+        }
+        None
     }
+
+    // fn subsample(&self) -> Vec<usize> {
+    //     let n: usize = self.size;
+    //     let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+    //     lst.par_iter().for_each(|word| { *word_to_freq.entry(*word).or_insert(0 as f64) += 1 as f64 });
+    //     word_to_freq.par_iter().for_each(|(_, val)| *val /= n as f64);
+    //     let mut rng = rand::thread_rng();
+    //     let indices: Vec<usize> = word_to_freq.par_iter().map(|k,v| { 
+    //         let p: f64 = ((v / 0.001).sqrt() + 1) * (0.001 / v);
+    //         let r: f64 = rng.gen();
+    //         if r < p { *k }
+    //     }).collect();
+    //     indices
+    // }
 }
