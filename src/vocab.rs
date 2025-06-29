@@ -1,13 +1,17 @@
 use rayon::prelude::*;
+use pyo3::prelude::*;
 
 
+#[pyclass]
 pub struct Vocab {
     pub size: usize,
     pub words: Vec<String>,
     pub word_to_id: std::collections::HashMap<String, usize>,
 }
 
+#[pymethods]
 impl Vocab {
+    #[new]
     pub fn new() -> Self {
         Vocab {
             size: 0,
@@ -16,6 +20,7 @@ impl Vocab {
         }
     }
 
+    #[staticmethod]
     pub fn from_words(words: Vec<String>) -> Self {
         let mut vocab = Vocab::new();
         let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
@@ -33,21 +38,22 @@ impl Vocab {
         vocab
     }
 
-    pub fn get_ids(&self, words: Vec<String>) -> Vec<usize> {
-        words.par_iter().map(|word| self.word_to_id[word]).collect()
+    pub fn get_ids(&self, words: Vec<String>) -> PyResult<Vec<usize>> {
+        Ok(words.par_iter().map(|word| self.word_to_id[word]).collect())
     }
 
-    pub fn add_word(&mut self, word: String) {
+    pub fn add_word(&mut self, word: String) -> PyResult<()> {
         if !self.word_to_id.contains_key(&word) {
             let id = self.size;
             self.word_to_id.insert(word.clone(), id);
             self.words.push(word);
             self.size += 1;
         }
+        Ok(())
     }
 
-    pub fn get_id(&self, word: &str) -> Option<usize> {
-        self.word_to_id.get(word).cloned()
+    pub fn get_id(&self, word: &str) -> PyResult<Option<usize>> {
+        Ok(self.word_to_id.get(word).cloned())
     }
 
     fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option>usize> {
@@ -61,18 +67,4 @@ impl Vocab {
         }
         None
     }
-
-    // fn subsample(&self) -> Vec<usize> {
-    //     let n: usize = self.size;
-    //     let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
-    //     lst.par_iter().for_each(|word| { *word_to_freq.entry(*word).or_insert(0 as f64) += 1 as f64 });
-    //     word_to_freq.par_iter().for_each(|(_, val)| *val /= n as f64);
-    //     let mut rng = rand::thread_rng();
-    //     let indices: Vec<usize> = word_to_freq.par_iter().map(|k,v| { 
-    //         let p: f64 = ((v / 0.001).sqrt() + 1) * (0.001 / v);
-    //         let r: f64 = rng.gen();
-    //         if r < p { *k }
-    //     }).collect();
-    //     indices
-    // }
 }
