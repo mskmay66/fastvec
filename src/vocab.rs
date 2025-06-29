@@ -1,12 +1,13 @@
 use rayon::prelude::*;
 use pyo3::prelude::*;
+use std::collections::HashMap;
 
 
 #[pyclass]
 pub struct Vocab {
     pub size: usize,
     pub words: Vec<String>,
-    pub word_to_id: std::collections::HashMap<String, usize>,
+    pub word_to_id: HashMap<String, usize>,
 }
 
 #[pymethods]
@@ -16,14 +17,14 @@ impl Vocab {
         Vocab {
             size: 0,
             words: Vec::new(),
-            word_to_id: std::collections::HashMap::new(),
+            word_to_id: HashMap::new(),
         }
     }
 
     #[staticmethod]
     pub fn from_words(words: Vec<String>) -> Self {
         let mut vocab = Vocab::new();
-        let mut word_to_freq: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+        let mut word_to_freq: HashMap<usize, f64> = HashMap::new();
         words.par_iter().for_each(|word| {
             vocab.add_word(word);
             word_to_freq
@@ -33,7 +34,7 @@ impl Vocab {
         });
         vocab.word_to_id = words
             .par_iter()
-            .map(|word, idx| (word, vocab.subsample(word, &word_to_freq)))
+            .map(|word| (word, vocab.subsample(word, &word_to_freq)))
             .collect();
         vocab
     }
@@ -42,11 +43,11 @@ impl Vocab {
         Ok(words.par_iter().map(|word| self.word_to_id[word]).collect())
     }
 
-    pub fn add_word(&mut self, word: String) -> PyResult<()> {
-        if !self.word_to_id.contains_key(&word) {
+    pub fn add_word(&mut self, word: &str) -> PyResult<()> {
+        if !self.word_to_id.contains_key(word) {
             let id = self.size;
-            self.word_to_id.insert(word.clone(), id);
-            self.words.push(word);
+            self.word_to_id.insert(word.to_string(), id);
+            self.words.push(word.to_string());
             self.size += 1;
         }
         Ok(())
@@ -56,7 +57,7 @@ impl Vocab {
         Ok(self.word_to_id.get(word).cloned())
     }
 
-    fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option>usize> {
+    fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
         if let Some(&id) = self.word_to_id.get(word) {
             let freq = word_to_freq.get(&id).unwrap_or(&0.0);
             let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
