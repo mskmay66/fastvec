@@ -4,10 +4,12 @@ use std::collections::HashMap;
 
 
 #[pyclass]
+#[derive(Clone, Debug)]
 pub struct Vocab {
     pub size: usize,
     pub words: Vec<String>,
     pub word_to_id: HashMap<String, usize>,
+    pub valid_ids: Vec<usize>,
 }
 
 #[pymethods]
@@ -18,6 +20,7 @@ impl Vocab {
             size: 0,
             words: Vec::new(),
             word_to_id: HashMap::new(),
+            valid_ids: Vec::new(),
         }
     }
 
@@ -25,16 +28,16 @@ impl Vocab {
     pub fn from_words(words: Vec<String>) -> Self {
         let mut vocab = Vocab::new();
         let mut word_to_freq: HashMap<usize, f64> = HashMap::new();
-        words.par_iter().for_each(|word| {
+        words.iter().for_each(|word| {
             vocab.add_word(word);
             word_to_freq
                 .entry(vocab.word_to_id[word])
                 .and_modify(|e| *e += 1.0)
                 .or_insert(1.0);
         });
-        vocab.word_to_id = words
+        vocab.valid_ids = words
             .par_iter()
-            .map(|word| (word, vocab.subsample(word, &word_to_freq)))
+            .filter_map(|word| vocab.subsample(word, word_to_freq))
             .collect();
         vocab
     }
@@ -49,6 +52,7 @@ impl Vocab {
             self.word_to_id.insert(word.to_string(), id);
             self.words.push(word.to_string());
             self.size += 1;
+            self.valid_ids.push(id);
         }
         Ok(())
     }
@@ -57,7 +61,7 @@ impl Vocab {
         Ok(self.word_to_id.get(word).cloned())
     }
 
-    fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
+    fn subsample(&self, word: &str, word_to_freq: HashMap<usize, f64>) -> Option<usize> {
         if let Some(&id) = self.word_to_id.get(word) {
             let freq = word_to_freq.get(&id).unwrap_or(&0.0);
             let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
