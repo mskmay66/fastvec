@@ -2,7 +2,9 @@ use rayon::prelude::*;
 use pyo3::prelude::*;
 use rand::prelude::*;
 mod vocab;
+mod embedding;
 use vocab::Vocab;
+use embedding::Embedding;
 
 fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
     let mut samples = Vec::new();
@@ -42,6 +44,7 @@ pub fn build(documents: Vec<Vec<String>>, vocabulary: &Vocab, window: Option<usi
 #[pymodule]
 fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Vocab>()?;
+    m.add_class::<Embedding>()?;
     m.add_function(wrap_pyfunction!(build, m)?)?;
     Ok(())
 }

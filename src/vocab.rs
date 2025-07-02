@@ -37,7 +37,13 @@ impl Vocab {
         });
         vocab.valid_ids = words
             .par_iter()
-            .filter_map(|word| vocab.subsample(word, word_to_freq))
+            .filter_map(|word| { 
+                if let Some(id) = vocab.word_to_id.get(word) {
+                    subsample(*id, &word_to_freq)
+                } else {
+                    None
+                }
+            })
             .collect();
         vocab
     }
@@ -61,15 +67,25 @@ impl Vocab {
         Ok(self.word_to_id.get(word).cloned())
     }
 
-    fn subsample(&self, word: &str, word_to_freq: HashMap<usize, f64>) -> Option<usize> {
-        if let Some(&id) = self.word_to_id.get(word) {
-            let freq = word_to_freq.get(&id).unwrap_or(&0.0);
-            let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
-            let r: f64 = rand::random();
-            if r < p {
-                return Some(id);
-            }
+    // fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
+    //     if let Some(&id) = self.word_to_id.get(word) {
+    //         let freq = word_to_freq.get(&id).unwrap_or(&0.0);
+    //         let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
+    //         let r: f64 = rand::random();
+    //         if r < p {
+    //             return Some(id);
+    //         }
+    //     }
+    //     None
+    // }
+}
+
+fn subsample(token_id: usize, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
+        let freq = word_to_freq.get(&token_id).unwrap_or(&0.001);
+        let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
+        let r: f64 = rand::random();
+        if r < p {
+            return Some(token_id);
         }
         None
-    }
 }
