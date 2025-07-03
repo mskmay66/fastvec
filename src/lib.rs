@@ -21,7 +21,6 @@ fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<
 
 #[pyfunction]
 pub fn build(documents: Vec<Vec<String>>, vocabulary: &Vocab, window: Option<usize>) -> PyResult<Vec<(usize, usize, u8)>> {
-    // let mut examples = Vec::new();
     let examples = documents.par_iter().map(|doc| {
         let encoded_doc: Vec<usize> = vocabulary.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
         let context_window: usize = window.unwrap_or(5);

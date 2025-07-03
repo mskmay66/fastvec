@@ -31,10 +31,18 @@ class Word2Vec(nn.Module):
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.epochs = epochs    
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.input_encoder = nn.Linear(2, embedding_dim)
         self.target_encoder = nn.Linear(2, embedding_dim)
         self.activation = nn.Sigmoid()
+
+        self.input_encoder.to(self.device)
+        self.target_encoder.to(self.device)
+        self.activation.to(self.device)
+        
+        self.vocab = None
+        self.embeddings = None
 
     
     def build_vocab(self, corpus: List[str]) -> None:
