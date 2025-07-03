@@ -66,18 +66,6 @@ impl Vocab {
     pub fn get_id(&self, word: &str) -> PyResult<Option<usize>> {
         Ok(self.word_to_id.get(word).cloned())
     }
-
-    // fn subsample(&self, word: &str, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
-    //     if let Some(&id) = self.word_to_id.get(word) {
-    //         let freq = word_to_freq.get(&id).unwrap_or(&0.0);
-    //         let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
-    //         let r: f64 = rand::random();
-    //         if r < p {
-    //             return Some(id);
-    //         }
-    //     }
-    //     None
-    // }
 }
 
 fn subsample(token_id: usize, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
