@@ -129,7 +129,7 @@ class Word2Vec(nn.Module):
         return embeddings
 
 
-    def train(self, corpus: List[str], window_size: int = 5) -> Embedding:
+    def train(self, corpus: List[str], window_size: int = 5) -> None:
         """
         Train the Word2Vec model on the given corpus.
         
@@ -142,7 +142,36 @@ class Word2Vec(nn.Module):
         """
         self.build_vocab(corpus)
         examples = self.build_training_set(corpus, window_size)
-        return self._train(examples)
+        self.embeddings = self._train(examples)
+    
+
+    def get_embeddings(self, words: List[str]) -> List[List[float]]:
+        """
+        Get the learned embeddings.
+        
+        Returns:
+            torch.Tensor: The learned embeddings.
+
+        Raises:
+            ValueError: If the model has not been trained yet.
+        """
+        if hasattr(self, 'embeddings'):
+            indices = self.vocab.get_ids(words)
+            return self.embeddings.get_vectors(indices)
+        else:
+            raise ValueError("Model has not been trained yet. Call 'train' method first.")
+    
+    def __getitem__(self, word: str) -> List[float]:
+        """
+        Get the embedding for a specific word.
+        
+        Args:
+            word (str): The word to get the embedding for.
+        
+        Returns:
+            List[float]: The embedding vector for the word.
+        """
+        return self.get_embeddings([word])[0]
 
 
 
