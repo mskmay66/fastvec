@@ -47,3 +47,33 @@ fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(build, m)?)?;
     Ok(())
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::PyList;
+
+    #[test]
+    fn test_negative_sample() {
+        let vocab = Vocab::from_words(vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]);
+        let samples = negative_sample(0, &vocab, 5);
+        assert!(samples.len() <= 5);
+        for (input, sample, label) in samples {
+            assert!(input == 0);
+            assert!(sample != 0);
+            assert_eq!(label, 0);
+        }
+    }
+
+    #[test]
+    fn test_build() {
+        let vocab = Vocab::from_words(vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]);
+        let documents = vec![vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]];
+        let examples = build(documents, &vocab, Some(3)).unwrap();
+        assert!(!examples.is_empty());
+        for (input, sample, label) in examples {
+            assert!(label == 0 || label == 1);
+        }
+    }
+}
