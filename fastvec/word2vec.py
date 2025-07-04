@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from typing import List
 
-from fastvec import Vocab, Embedding, build
+from fastvec import Vocab, Embedding, Builder
 
 
 class Word2VecDataset(Dataset):
@@ -88,7 +88,8 @@ class Word2Vec(nn.Module):
         Returns:
             List[tuple]: Training set as pairs of input and target words.
         """
-        examples = build(corpus, self.vocab, window_size)
+        builder = Builder(corpus, self.vocab, window_size)
+        examples = builder.build_w2v_training()
         datset = Word2VecDataset(examples)
         return DataLoader(datset, batch_size=32, shuffle=True)
 

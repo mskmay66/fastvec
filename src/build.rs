@@ -1,0 +1,120 @@
+use pyo3::prelude::*;
+use rayon::prelude::*;
+use rand::prelude::*;
+use crate::vocab::Vocab;
+use crate::vocab::subsample;
+
+fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
+    let mut samples = Vec::new();
+    let mut rng = rand::rng();
+    for _ in 0..num_samples {
+        let random_index = rng.random_range(0..(vocabulary.size));
+        if (random_index != input) && vocabulary.valid_ids.contains(&random_index) {
+            samples.push((input, random_index, 0)); // Negative sample
+        }
+    }
+    samples
+}
+
+// #[pyfunction]
+// pub fn build_w2v_training(documents: Vec<Vec<String>>, vocabulary: &Vocab, window: Option<usize>) -> PyResult<Vec<(usize, usize, u8)>> {
+//     let examples = documents.par_iter().map(|doc| {
+//         let encoded_doc: Vec<usize> = vocabulary.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
+//         let context_window: usize = window.unwrap_or(5);
+//         let mut examples = Vec::new();
+//         for w in encoded_doc.windows(context_window) { // Assuming context window size of 5
+//             let center = w[context_window / 2]; // Center word in the context window
+//             for (i, &word) in w.iter().enumerate() {
+//                 if i != 2 { // Skip the center word
+//                     examples.push((center, word, 1)); // Positive example
+//                     examples.extend(negative_sample(center, vocabulary, 5)); // Negative samples
+//                 }
+//             }
+//         }
+//         examples
+//     }).flatten().collect::<Vec<_>>();
+//     Ok(examples)
+// }
+
+// #[pyfunction]
+// pub fn build_d2v_training(documents: Vec<Vec<String>>, vocabulary: &Vocab, window: Option<usize>) -> PyResult<Vec<(usize, usize, usize, u8)>> {
+//     let examples = documents.par_iter().enumerate().map(|i, doc| {
+//         let encoded_doc: Vec<usize> = vocabulary.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
+//         let context_window: usize = window.unwrap_or(5);
+//         let mut examples = Vec::new();
+//         for w in encoded_doc.windows(context_window) { // Assuming context window size of 5
+//             let center = w[context_window / 2]; // Center word in the context window
+//             for (i, &word) in w.iter().enumerate() {
+//                 if i != 2 { // Skip the center word
+//                     examples.push((i, center, word, 1)); // Positive example
+//                     let negative_samples = negative_sample(center, vocabulary, 5).iter().map(|(input, sample, label)| (i, *input, *sample, *label));
+//                     examples.extend(negative_samples); // Negative samples
+//                 }
+//             }
+//         }
+//         examples
+//     }).flatten().collect::<Vec<_>>();
+//     Ok(examples)
+// }
+
+enum Example {
+    W2V(usize, usize, u8),
+    D2V(usize, usize, usize, u8),
+}
+
+#[pyclass]
+pub struct Builder {
+    documents: Vec<Vec<String>>,
+    vocab: Vocab,
+    window: Option<usize>,
+}
+
+#[pymethods]
+impl Builder {
+    #[new]
+    pub fn new(documents: Vec<Vec<String>>, vocab: Vocab, window: Option<usize>) -> Self {
+        Builder {
+            documents,
+            vocab,
+            window,
+        }
+    }
+
+    pub fn build_example(&self, encoded_doc: &Vec<usize>, context_window: usize, doc_index: Option<usize>) ->  Vec<Example> {
+        let mut examples = Vec::new();
+        for w in encoded_doc.windows(context_window) {
+            let center = w[context_window / 2];
+            for (i, &word) in w.iter().enumerate() {
+                if i != context_window / 2 {
+                    if let Some(doc_index) = doc_index {
+                        examples.push(Example::D2V(doc_index, center, word, 1));
+                        examples.extend(negative_sample(center, &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::D2V(doc_index, input, sample, label)));
+                    } else {
+                        examples.push(Example::W2V(center, word, 1));
+                        examples.extend(negative_sample(center, &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::W2V(input, sample, label)));
+                    }
+                }
+            }
+        }
+        examples
+    }
+
+    pub fn build_w2v_training(self) -> PyResult<Vec<(usize, usize, u8)>> {
+        let examples = documents.par_iter().map(|doc| { 
+            let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
+            let context_window: usize = self.window.unwrap_or(5);
+            self.build_example(&encoded_doc, context_window, None)
+        }).flatten().collect::<Vec<_>>();
+        Ok(examples)
+    }
+
+    pub fn build_d2v_training(self) -> PyResult<Vec<(usize, usize, usize, u8)>> {
+        let examples = documents.par_iter().enumerate().map(|(i, doc)| {
+            let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
+            let context_window: usize = self.window.unwrap_or(5);
+            self.build_example(&encoded_doc, context_window, Some(i))
+        }).flatten().collect::<Vec<_>>();
+        Ok(examples)
+    }
+}
+
