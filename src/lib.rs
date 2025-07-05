@@ -7,6 +7,7 @@ mod build;
 use vocab::Vocab;
 use embedding::Embedding;
 use build::Builder;
+use build::Example;
 
 
 #[pymodule]
@@ -14,6 +15,6 @@ fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Vocab>()?;
     m.add_class::<Embedding>()?;
     m.add_class::<Builder>()?;
-    // m.add_function(wrap_pyfunction!(build_w2v_training, m)?)?;
+    m.add_class::<Example>()?;
     Ok(())
 }

@@ -2,7 +2,6 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 use rand::prelude::*;
 use crate::vocab::Vocab;
-use crate::vocab::subsample;
 
 fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
     let mut samples = Vec::new();
@@ -57,7 +56,8 @@ fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<
 //     Ok(examples)
 // }
 
-enum Example {
+#[pyclass]
+pub enum Example {
     W2V(usize, usize, u8),
     D2V(usize, usize, usize, u8),
 }
@@ -80,7 +80,7 @@ impl Builder {
         }
     }
 
-    pub fn build_example(&self, encoded_doc: &Vec<usize>, context_window: usize, doc_index: Option<usize>) ->  Vec<Example> {
+    pub fn build_example(&self, encoded_doc: Vec<usize>, context_window: usize, doc_index: Option<usize>) ->  Vec<Example> {
         let mut examples = Vec::new();
         for w in encoded_doc.windows(context_window) {
             let center = w[context_window / 2];
@@ -99,20 +99,21 @@ impl Builder {
         examples
     }
 
-    pub fn build_w2v_training(self) -> PyResult<Vec<(usize, usize, u8)>> {
-        let examples = documents.par_iter().map(|doc| { 
+
+    pub fn build_w2v_training(&self) -> PyResult<Vec<Example>> {
+        let context_window: usize = self.window.unwrap_or(5);
+        let examples = self.documents.par_iter().map(|doc| { 
             let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
-            let context_window: usize = self.window.unwrap_or(5);
-            self.build_example(&encoded_doc, context_window, None)
+            self.build_example(encoded_doc, context_window, None)
         }).flatten().collect::<Vec<_>>();
         Ok(examples)
     }
 
-    pub fn build_d2v_training(self) -> PyResult<Vec<(usize, usize, usize, u8)>> {
-        let examples = documents.par_iter().enumerate().map(|(i, doc)| {
+    pub fn build_d2v_training(&self) -> PyResult<Vec<Example>> {
+        let context_window: usize = self.window.unwrap_or(5);
+        let examples = self.documents.par_iter().enumerate().map(|(i, doc)| {
             let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
-            let context_window: usize = self.window.unwrap_or(5);
-            self.build_example(&encoded_doc, context_window, Some(i))
+            self.build_example(encoded_doc, context_window, Some(i))
         }).flatten().collect::<Vec<_>>();
         Ok(examples)
     }
