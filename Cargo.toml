@@ -12,3 +12,4 @@ crate-type = ["cdylib"]
 pyo3 = "0.24.0"
 rand = "0.9.1"
 rayon = "1.10.0"
+unicode-normalization = "0.1.24"

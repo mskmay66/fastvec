@@ -6,7 +6,9 @@ use std::collections::HashMap;
 #[pyclass]
 #[derive(Clone, Debug)]
 pub struct Vocab {
+    #[pyo3(get)]
     pub size: usize,
+    #[pyo3(get)]
     pub words: Vec<String>,
     pub word_to_id: HashMap<String, usize>,
     pub valid_ids: Vec<usize>,
@@ -35,11 +37,12 @@ impl Vocab {
                 .and_modify(|e| *e += 1.0)
                 .or_insert(1.0);
         });
+        let n = vocab.size;
         vocab.valid_ids = words
             .par_iter()
             .filter_map(|word| { 
                 if let Some(id) = vocab.word_to_id.get(word) {
-                    subsample(*id, &word_to_freq)
+                    subsample(id, &word_to_freq, n)
                 } else {
                     None
                 }
@@ -68,12 +71,12 @@ impl Vocab {
     }
 }
 
-fn subsample(token_id: usize, word_to_freq: &HashMap<usize, f64>) -> Option<usize> {
-        let freq = word_to_freq.get(&token_id).unwrap_or(&0.001);
+fn subsample(token_id: &usize, word_to_freq: &HashMap<usize, f64>, vocab_size: usize) -> Option<usize> {
+        let freq = word_to_freq.get(token_id).unwrap_or(&0.1) / vocab_size as f64;
         let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
         let r: f64 = rand::random();
         if r < p {
-            return Some(token_id);
+            return Some(*token_id);
         }
         None
 }

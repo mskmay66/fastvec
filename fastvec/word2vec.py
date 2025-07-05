@@ -24,9 +24,9 @@ class Word2VecDataset(Dataset):
 
 
 class Word2Vec(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, epochs=100):
+    def __init__(self, embedding_dim, epochs=100):
         super(Word2Vec, self).__init__()
-        self.vocab_size = vocab_size
+        # self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.epochs = epochs
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,6 +41,17 @@ class Word2Vec(nn.Module):
 
         self.vocab = None
         self.embeddings = None
+
+    def corpus_from_documents(self, documents: List[List[str]]) -> List[str]:
+        """Convert a list of documents into a flat list of words.
+
+        Args:
+            documents (List[List[str]]): List of documents, each document is a list of words.
+
+        Returns:
+            List[str]: Flattened list of words.
+        """
+        return [doc.split() for doc in documents]
 
     def build_vocab(self, corpus: List[str]) -> None:
         """Build vocabulary from the corpus.
@@ -75,8 +86,8 @@ class Word2Vec(nn.Module):
         return output
 
     def build_training_set(
-        self, corpus: List[str], window_size: int = 5
-    ) -> List[tuple]:
+        self, documents: List[List[str]], window_size: int = 5
+    ) -> DataLoader:
         """
         Build training set from the corpus.
 
@@ -85,12 +96,12 @@ class Word2Vec(nn.Module):
             window_size (int): Size of the context window.
 
         Returns:
-            List[tuple]: Training set as pairs of input and target words.
+            DataLoader: Training set as pairs of input and target words.
         """
-        builder = Builder(corpus, self.vocab, window_size)
+        builder = Builder(documents, self.vocab, window_size)
         examples = builder.build_w2v_training()
-        datset = Word2VecDataset(examples)
-        return DataLoader(datset, batch_size=32, shuffle=True)
+        dataset = Word2VecDataset(examples)
+        return DataLoader(dataset, batch_size=32, shuffle=True)
 
     def _train(self, examples: DataLoader) -> Embedding:
         """Train the Word2Vec model on the provided examples.
@@ -137,7 +148,7 @@ class Word2Vec(nn.Module):
             embeddings.add_vectors(input_words, vectors)
         return embeddings
 
-    def train(self, corpus: List[str], window_size: int = 5) -> None:
+    def train(self, documents: List[List[str]], window_size: int = 5) -> None:
         """
         Train the Word2Vec model on the given corpus.
 
@@ -148,8 +159,9 @@ class Word2Vec(nn.Module):
         Returns:
             Embedding: The learned embeddings.
         """
+        corpus = self.corpus_from_documents(documents)
         self.build_vocab(corpus)
-        examples = self.build_training_set(corpus, window_size)
+        examples = self.build_training_set(documents, window_size)
         self.embeddings = self._train(examples)
 
     def get_embeddings(self, words: List[str]) -> List[List[float]]:
