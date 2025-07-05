@@ -33,10 +33,14 @@ class Doc2Vec(Word2Vec):
     Inherits from Word2Vec and extends its functionality to handle documents.
     """
 
-    def __init__(self, vocab_size, embedding_dim, epochs=100):
+    def __init__(self, vocab_size, embedding_dim, epochs=100, inference_epochs=10):
         super(Doc2Vec, self).__init__(vocab_size, embedding_dim, epochs)
         self.document_encoder = nn.Linear(2, embedding_dim)
         self.document_encoder.to(self.device)
+
+        self.inference_epochs = inference_epochs
+
+        self.inference_encoder = nn.Linear(embedding_dim, embedding_dim)
 
     def build_training_set(self, corpus: List[str], window_size: int = 5) -> List[tuple]:
         """
@@ -54,7 +58,7 @@ class Doc2Vec(Word2Vec):
         datset = Doc2VecDataset(examples)
         return DataLoader(datset, batch_size=32, shuffle=True)
     
-    def forward(self, input_words: torch.Tensor, target_words: torch.Tensor) -> torch.Tensor:
+    def forward(self, doc_id: torch.Tensor, input_words: torch.Tensor, target_words: torch.Tensor) -> torch.Tensor:
         """
         Forward pass for the Word2Vec model.
         
@@ -65,7 +69,7 @@ class Doc2Vec(Word2Vec):
         Returns:
             torch.Tensor: Output embeddings.
         """
-        doc_embeddings = self.document_encoder(input_words.float())
+        doc_embeddings = self.document_encoder(doc_id.float())
         input_embeddings = self.input_encoder(input_words.float())
         target_embeddings = self.target_encoder(target_words.float())
         
@@ -96,7 +100,7 @@ class Doc2Vec(Word2Vec):
                 labels = batch['label']
 
                 # Forward pass
-                outputs = self.forward(input_words, target_words)
+                outputs = self.forward(doc_id, input_words, target_words)
 
                 # Compute loss
                 loss = nn.BCELoss()(outputs, labels)
@@ -105,16 +109,45 @@ class Doc2Vec(Word2Vec):
                 self.zero_grad()
                 loss.backward()
                 optimizer.step()
+        return self.save_embeddings(examples)
         
 
-    # def get_embeddings(self, words: List[str]) -> List[List[float]]:
-    #     """
-    #     Get the learned embeddings.
+    def get_embeddings(self, docs: List[List[str]], num_pairs=5) -> List[List[float]]:
+        """
+        Get the learned embeddings.
         
-    #     Returns:
-    #         torch.Tensor: The learned embeddings.
+        Returns:
+            torch.Tensor: The learned embeddings.
 
-    #     Raises:
-    #         ValueError: If the model has not been trained yet.
-    #     """
-        
+        Raises:
+            ValueError: If the model has not been trained yet.
+        """
+        # start with random doc embedding
+        # pick k-many random words in each document
+        # get their embeddings
+        # pair them up 
+        # average one word with doc embedding and take dot product with target word embeddings
+        # sigmoid and back prop with 1 being label
+        # implement early stopping based on loss convergence
+        if not hasattr(self, 'embeddings') or self.vocab is None:
+            optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+            word_embeddings = torch.Tensor([self.embeddings.get_vectors(self.vocab.get_ids(doc)) for doc in docs], dtype=torch.float32)
+            indices = torch.randint(0, word_embeddings.shape[1], (self.num_pairs,))
+            word_embeddings = word_embeddings[:, indices]
+            start = torch.rand((len(docs), self.embedding_dim), dtype=torch.float32, device=self.device)
+            for _ in range(self.inference_epochs):
+                doc_embeddings = self.inference_encoder(start)
+                avg = (doc_embeddings + word_embeddings[:, 0, :]) / 2
+                out = torch.dot(avg, word_embeddings[:, 1:, :])
+                out = self.activation(out)
+
+                # Compute loss
+                loss = nn.BCELoss()(out, torch.ones_like(out))
+
+                # Backward pass and optimization
+                self.zero_grad()
+                loss.backward()
+                optimizer.step()
+            return doc_embeddings.cpu().detach().numpy().tolist()
+        return []
+
