@@ -8,28 +8,27 @@ from fastvec import Vocab, Embedding, Builder
 
 
 class Doc2VecDataset(Dataset):
-
     def __init__(self, examples):
         super(Doc2VecDataset, self).__init__()
         self.examples = examples
-    
+
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, idx):
         doc_id, input_words, target_words, label = self.examples[idx]
         return {
-            'doc_id': torch.tensor(doc_id, dtype=torch.float32),
-            'input_words': torch.tensor(input_words, dtype=torch.float32),
-            'target_words': torch.tensor(target_words, dtype=torch.float32),
-            'label': torch.tensor(label, dtype=torch.float32)
+            "doc_id": torch.tensor(doc_id, dtype=torch.float32),
+            "input_words": torch.tensor(input_words, dtype=torch.float32),
+            "target_words": torch.tensor(target_words, dtype=torch.float32),
+            "label": torch.tensor(label, dtype=torch.float32),
         }
 
 
 class Doc2Vec(Word2Vec):
     """
     Doc2Vec model for document embedding.
-    
+
     Inherits from Word2Vec and extends its functionality to handle documents.
     """
 
@@ -42,14 +41,16 @@ class Doc2Vec(Word2Vec):
 
         self.inference_encoder = nn.Linear(embedding_dim, embedding_dim)
 
-    def build_training_set(self, corpus: List[str], window_size: int = 5) -> List[tuple]:
+    def build_training_set(
+        self, corpus: List[str], window_size: int = 5
+    ) -> List[tuple]:
         """
         Build training set from the corpus.
-        
+
         Args:
             corpus (List[str]): List of sentences.
             window_size (int): Size of the context window.
-        
+
         Returns:
             List[tuple]: Training set as pairs of input and target words.
         """
@@ -57,32 +58,37 @@ class Doc2Vec(Word2Vec):
         examples = builder.build_d2v_training()
         datset = Doc2VecDataset(examples)
         return DataLoader(datset, batch_size=32, shuffle=True)
-    
-    def forward(self, doc_id: torch.Tensor, input_words: torch.Tensor, target_words: torch.Tensor) -> torch.Tensor:
+
+    def forward(
+        self,
+        doc_id: torch.Tensor,
+        input_words: torch.Tensor,
+        target_words: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Forward pass for the Word2Vec model.
-        
+
         Args:
             input_words (torch.Tensor): Input word indices.
             target_words (torch.Tensor): Target word indices.
-        
+
         Returns:
             torch.Tensor: Output embeddings.
         """
         doc_embeddings = self.document_encoder(doc_id.float())
         input_embeddings = self.input_encoder(input_words.float())
         target_embeddings = self.target_encoder(target_words.float())
-        
+
         # Combine the embeddings
         sim = torch.dot((doc_embeddings + input_embeddings) / 2, target_embeddings)
-        
+
         # Apply activation function
         output = self.activation(sim)
-        
+
         return output
-    
+
     def _train(self, examples: DataLoader) -> None:
-        """ Train the Word2Vec model on the provided examples.
+        """Train the Word2Vec model on the provided examples.
 
         Args:
             examples (DataLoader): DataLoader containing training examples.
@@ -90,14 +96,16 @@ class Doc2Vec(Word2Vec):
         Returns:
             Embedding: The learned embeddings.
         """
-        params = list(self.input_encoder.parameters()) + list(self.target_encoder.parameters())
+        params = list(self.input_encoder.parameters()) + list(
+            self.target_encoder.parameters()
+        )
         optimizer = torch.optim.Adam(params, lr=0.001)
         for _ in range(self.epochs):
             for batch in examples:
-                doc_id = batch['doc_id']
-                input_words = batch['input_words']
-                target_words = batch['target_words']
-                labels = batch['label']
+                doc_id = batch["doc_id"]
+                input_words = batch["input_words"]
+                target_words = batch["target_words"]
+                labels = batch["label"]
 
                 # Forward pass
                 outputs = self.forward(doc_id, input_words, target_words)
@@ -110,12 +118,11 @@ class Doc2Vec(Word2Vec):
                 loss.backward()
                 optimizer.step()
         return self.save_embeddings(examples)
-        
 
     def get_embeddings(self, docs: List[List[str]], num_pairs=5) -> List[List[float]]:
         """
         Get the learned embeddings.
-        
+
         Returns:
             torch.Tensor: The learned embeddings.
 
@@ -125,16 +132,21 @@ class Doc2Vec(Word2Vec):
         # start with random doc embedding
         # pick k-many random words in each document
         # get their embeddings
-        # pair them up 
+        # pair them up
         # average one word with doc embedding and take dot product with target word embeddings
         # sigmoid and back prop with 1 being label
         # implement early stopping based on loss convergence
-        if not hasattr(self, 'embeddings') or self.vocab is None:
+        if not hasattr(self, "embeddings") or self.vocab is None:
             optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
-            word_embeddings = torch.Tensor([self.embeddings.get_vectors(self.vocab.get_ids(doc)) for doc in docs], dtype=torch.float32)
+            word_embeddings = torch.Tensor(
+                [self.embeddings.get_vectors(self.vocab.get_ids(doc)) for doc in docs],
+                dtype=torch.float32,
+            )
             indices = torch.randint(0, word_embeddings.shape[1], (self.num_pairs,))
             word_embeddings = word_embeddings[:, indices]
-            start = torch.rand((len(docs), self.embedding_dim), dtype=torch.float32, device=self.device)
+            start = torch.rand(
+                (len(docs), self.embedding_dim), dtype=torch.float32, device=self.device
+            )
             for _ in range(self.inference_epochs):
                 doc_embeddings = self.inference_encoder(start)
                 avg = (doc_embeddings + word_embeddings[:, 0, :]) / 2
@@ -150,4 +162,3 @@ class Doc2Vec(Word2Vec):
                 optimizer.step()
             return doc_embeddings.cpu().detach().numpy().tolist()
         return []
-
