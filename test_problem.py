@@ -9,14 +9,9 @@ def main():
     ]
     tokens = simple_preprocessing(small_corpus, deacc=False)
     print("Tokens:", tokens.tokens)
-    vocab = Vocab.from_words(tokens.flatten())
-    print("Vocabulary:", vocab.words)
-    builder = Builder(tokens.tokens, vocab, window=2)
-    examples = builder.build_w2v_training()
-    print("Training examples:", examples)
-    # model = Word2Vec(embedding_dim=64, epochs=10)
-    # model.train(tokens)
-    # print("Model trained successfully.")
+    model = Word2Vec(embedding_dim=64, epochs=10)
+    model.train(tokens)
+    print("Model trained successfully.")
 
 if __name__ == "__main__":
     main()

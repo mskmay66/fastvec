@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from typing import List
 
-from fastvec import Vocab, Embedding, Builder
+from fastvec import Vocab, Embedding, Builder, Tokens
 
 
 class Word2VecDataset(Dataset):
@@ -31,8 +31,8 @@ class Word2Vec(nn.Module):
         self.epochs = epochs
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.input_encoder = nn.Linear(2, embedding_dim)
-        self.target_encoder = nn.Linear(2, embedding_dim)
+        self.input_encoder = nn.Linear(1, embedding_dim)
+        self.target_encoder = nn.Linear(1, embedding_dim)
         self.activation = nn.Sigmoid()
 
         self.input_encoder.to(self.device)
@@ -41,17 +41,6 @@ class Word2Vec(nn.Module):
 
         self.vocab = None
         self.embeddings = None
-
-    def corpus_from_documents(self, documents: List[List[str]]) -> List[str]:
-        """Convert a list of documents into a flat list of words.
-
-        Args:
-            documents (List[List[str]]): List of documents, each document is a list of words.
-
-        Returns:
-            List[str]: Flattened list of words.
-        """
-        return [doc.split() for doc in documents]
 
     def build_vocab(self, corpus: List[str]) -> None:
         """Build vocabulary from the corpus.
@@ -74,11 +63,11 @@ class Word2Vec(nn.Module):
         Returns:
             torch.Tensor: Output embeddings.
         """
-        input_embeddings = self.input_encoder(input_words.float())
-        target_embeddings = self.target_encoder(target_words.float())
+        input_embeddings = self.input_encoder(input_words)
+        target_embeddings = self.target_encoder(target_words)
 
-        # Combine the embeddings
-        sim = torch.dot(input_embeddings, target_embeddings)
+        # Combine the embeddings (get dot product)
+        sim = (target_embeddings * input_embeddings).sum(dim=1)
 
         # Apply activation function
         output = self.activation(sim)
@@ -118,9 +107,9 @@ class Word2Vec(nn.Module):
         optimizer = torch.optim.Adam(params, lr=0.001)
         for _ in range(self.epochs):
             for batch in examples:
-                input_words = batch["input_words"]
-                target_words = batch["target_words"]
-                labels = batch["label"]
+                input_words = batch["input_words"].unsqueeze(1).to(self.device)
+                target_words = batch["target_words"].unsqueeze(1).to(self.device)
+                labels = batch["label"].to(self.device)
 
                 # Forward pass
                 outputs = self.forward(input_words, target_words)
@@ -143,12 +132,12 @@ class Word2Vec(nn.Module):
         """
         embeddings = Embedding(self.embedding_dim)
         for batch in examples:
-            input_words = batch["input_words"]
+            input_words = batch["input_words"].unsqueeze(1)
             vectors = self.input_encoder(input_words)
-            embeddings.add_vectors(input_words, vectors)
+            embeddings.add_vectors(input_words.flatten().to(torch.int64).tolist(), vectors.tolist())
         return embeddings
 
-    def train(self, documents: List[List[str]], window_size: int = 5) -> None:
+    def train(self, tokens: Tokens, window_size: int = 5) -> None:
         """
         Train the Word2Vec model on the given corpus.
 
@@ -159,9 +148,8 @@ class Word2Vec(nn.Module):
         Returns:
             Embedding: The learned embeddings.
         """
-        corpus = self.corpus_from_documents(documents)
-        self.build_vocab(corpus)
-        examples = self.build_training_set(documents, window_size)
+        self.build_vocab(tokens.flatten())
+        examples = self.build_training_set(tokens.tokens, window_size)
         self.embeddings = self._train(examples)
 
     def get_embeddings(self, words: List[str]) -> List[List[float]]:
