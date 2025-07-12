@@ -4,7 +4,7 @@ from typing import List
 from torch.utils.data import Dataset, DataLoader
 
 from .word2vec import Word2Vec
-from fastvec import Vocab, Embedding, Builder
+from fastvec import Builder
 
 
 class Doc2VecDataset(Dataset):
@@ -38,11 +38,10 @@ class Doc2Vec(Word2Vec):
         self.document_encoder.to(self.device)
 
         self.inference_epochs = inference_epochs
-
         self.inference_encoder = nn.Linear(embedding_dim, embedding_dim)
 
     def build_training_set(
-        self, corpus: List[str], window_size: int = 5
+        self, documents: List[List[str]], window_size: int = 5
     ) -> List[tuple]:
         """
         Build training set from the corpus.
@@ -54,7 +53,7 @@ class Doc2Vec(Word2Vec):
         Returns:
             List[tuple]: Training set as pairs of input and target words.
         """
-        builder = Builder(corpus, self.vocab, window_size)
+        builder = Builder(documents, self.vocab, window_size)
         examples = builder.build_d2v_training()
         datset = Doc2VecDataset(examples)
         return DataLoader(datset, batch_size=32, shuffle=True)
@@ -80,7 +79,8 @@ class Doc2Vec(Word2Vec):
         target_embeddings = self.target_encoder(target_words.float())
 
         # Combine the embeddings
-        sim = torch.dot((doc_embeddings + input_embeddings) / 2, target_embeddings)
+        sim = (target_embeddings * (doc_embeddings + input_embeddings) / 2).sum(dim=1)
+        # sim = torch.dot((doc_embeddings + input_embeddings) / 2, target_embeddings)
 
         # Apply activation function
         output = self.activation(sim)
@@ -119,7 +119,9 @@ class Doc2Vec(Word2Vec):
                 optimizer.step()
         return self.save_embeddings(examples)
 
-    def get_embeddings(self, docs: List[List[str]], num_pairs=5) -> List[List[float]]:
+    def get_embeddings(
+        self, docs: List[List[str]], window=5, num_pairs=5
+    ) -> List[List[float]]:
         """
         Get the learned embeddings.
 
@@ -129,6 +131,7 @@ class Doc2Vec(Word2Vec):
         Raises:
             ValueError: If the model has not been trained yet.
         """
+
         # start with random doc embedding
         # pick k-many random words in each document
         # get their embeddings
@@ -136,29 +139,28 @@ class Doc2Vec(Word2Vec):
         # average one word with doc embedding and take dot product with target word embeddings
         # sigmoid and back prop with 1 being label
         # implement early stopping based on loss convergence
+        def get_inputs(doc):
+            indices = torch.randint(0, len(doc), (num_pairs,))
+            input_words = [self.vocab.get_ids(doc[i]) for i in indices]
+            return input_words
+
         if not hasattr(self, "embeddings") or self.vocab is None:
-            optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
-            word_embeddings = torch.Tensor(
-                [self.embeddings.get_vectors(self.vocab.get_ids(doc)) for doc in docs],
-                dtype=torch.float32,
-            )
-            indices = torch.randint(0, word_embeddings.shape[1], (self.num_pairs,))
-            word_embeddings = word_embeddings[:, indices]
-            start = torch.rand(
-                (len(docs), self.embedding_dim), dtype=torch.float32, device=self.device
-            )
-            for _ in range(self.inference_epochs):
-                doc_embeddings = self.inference_encoder(start)
-                avg = (doc_embeddings + word_embeddings[:, 0, :]) / 2
-                out = torch.dot(avg, word_embeddings[:, 1:, :])
-                out = self.activation(out)
+            raise ValueError("Model has not been trained yet or vocab is not set.")
 
-                # Compute loss
-                loss = nn.BCELoss()(out, torch.ones_like(out))
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+        inputs = torch.Tensor([get_inputs(doc) for doc in docs])
+        doc_embeddings = torch.rand(len(docs), self.embedding_dim, device=self.device)
+        for _ in range(self.inference_epochs):
+            doc_embeddings = self.inference_encoder(doc_embeddings)
+            avg = (doc_embeddings + inputs[:, 0, :]) / 2
+            out = torch.matmul(avg, inputs[:, 1:, :].transpose(1, 2))
+            out = self.activation(out)
 
-                # Backward pass and optimization
-                self.zero_grad()
-                loss.backward()
-                optimizer.step()
-            return doc_embeddings.cpu().detach().numpy().tolist()
-        return []
+            # Compute loss
+            loss = nn.BCELoss()(out, torch.ones_like(out))
+
+            # Backward pass and optimization
+            self.zero_grad()
+            loss.backward()
+            optimizer.step()
+        return doc_embeddings.tolist()

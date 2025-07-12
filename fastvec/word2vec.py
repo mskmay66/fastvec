@@ -26,7 +26,6 @@ class Word2VecDataset(Dataset):
 class Word2Vec(nn.Module):
     def __init__(self, embedding_dim, epochs=100):
         super(Word2Vec, self).__init__()
-        # self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.epochs = epochs
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,7 +80,7 @@ class Word2Vec(nn.Module):
         Build training set from the corpus.
 
         Args:
-            corpus (List[str]): List of sentences.
+            documents (List[List[str]]): List of sentences.
             window_size (int): Size of the context window.
 
         Returns:
@@ -134,7 +133,9 @@ class Word2Vec(nn.Module):
         for batch in examples:
             input_words = batch["input_words"].unsqueeze(1)
             vectors = self.input_encoder(input_words)
-            embeddings.add_vectors(input_words.flatten().to(torch.int64).tolist(), vectors.tolist())
+            embeddings.add_vectors(
+                input_words.flatten().to(torch.int64).tolist(), vectors.tolist()
+            )
         return embeddings
 
     def train(self, tokens: Tokens, window_size: int = 5) -> None:
