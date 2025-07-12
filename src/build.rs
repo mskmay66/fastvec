@@ -19,7 +19,6 @@ fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<
 pub enum Example {
     W2V(usize, usize, u8),
     D2V(usize, usize, usize, u8),
-    // D2VInference(usize, usize, u8),
 }
 
 #[pyclass]
@@ -58,32 +57,6 @@ impl Builder {
         }
         examples
     }
-
-
-    // pub fn build_d2v_inference(&self, docs: Vec<Vec<String>>, num_pairs: usize) -> PyResult<Vec<Example>> {
-    //     let context_window: usize = self.window.unwrap_or(5);
-    //     let mut examples = Vec::new();
-    //     let mut rng = rand::thread_rng();
-    //     let examples = docs.par_iter().map(|doc| {
-    //         let words: Vec<String> = doc.choose_multiple(&mut rng, num_pairs).collect();
-    //         let encoded_words: Vec<usize> = self.vocab.get_ids(words).unwrap_or_else(|_| vec![]);
-    //         for word in encoded_words {
-    //             examples.push(Example::D2VInference(word, 0, 1)); // Assuming 0 as a placeholder for the second parameter
-    //         }
-    //     }).collect::<Vec<_>>();
-    //     for doc in docs.par_iter() {
-    //         let words: Vec<String> = doc.choose_multiple(&mut rng, num_pairs).collect();
-
-    //         // if let Some(random_word) = doc.choose_multiple(&mut rng, num_pairs) {
-    //         //     // let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
-    //         //     let encoded_doc: Vec<usize> = self.vocab.get_ids(random_word.to_vec()).unwrap_or_else(|_| vec![]);
-    //         //     example.extend()
-    //         // }
-    //         // let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.to_vec()).unwrap_or_else(|_| vec![]);
-    //         // examples.extend(self.build_example(encoded_doc, context_window, None));
-    //     }
-    //     Ok(examples)
-    // }
 
     pub fn build_w2v_training(&self) -> PyResult<Vec<Example>> {
         let context_window: usize = self.window.unwrap_or(5);

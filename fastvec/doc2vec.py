@@ -32,9 +32,9 @@ class Doc2Vec(Word2Vec):
     Inherits from Word2Vec and extends its functionality to handle documents.
     """
 
-    def __init__(self, vocab_size, embedding_dim, epochs=100, inference_epochs=10):
-        super(Doc2Vec, self).__init__(vocab_size, embedding_dim, epochs)
-        self.document_encoder = nn.Linear(2, embedding_dim)
+    def __init__(self, embedding_dim, epochs=100, inference_epochs=10):
+        super(Doc2Vec, self).__init__(embedding_dim, epochs)
+        self.document_encoder = nn.Linear(1, embedding_dim)
         self.document_encoder.to(self.device)
 
         self.inference_epochs = inference_epochs
@@ -102,9 +102,9 @@ class Doc2Vec(Word2Vec):
         optimizer = torch.optim.Adam(params, lr=0.001)
         for _ in range(self.epochs):
             for batch in examples:
-                doc_id = batch["doc_id"]
-                input_words = batch["input_words"]
-                target_words = batch["target_words"]
+                doc_id = batch["doc_id"].unsqueeze(1).to(self.device)
+                input_words = batch["input_words"].unsqueeze(1).to(self.device)
+                target_words = batch["target_words"].unsqueeze(1).to(self.device)
                 labels = batch["label"]
 
                 # Forward pass
@@ -119,9 +119,7 @@ class Doc2Vec(Word2Vec):
                 optimizer.step()
         return self.save_embeddings(examples)
 
-    def get_embeddings(
-        self, docs: List[List[str]], window=5, num_pairs=5
-    ) -> List[List[float]]:
+    def get_embeddings(self, docs: List[str], num_pairs=5) -> List[List[float]]:
         """
         Get the learned embeddings.
 
@@ -140,18 +138,17 @@ class Doc2Vec(Word2Vec):
         # sigmoid and back prop with 1 being label
         # implement early stopping based on loss convergence
         def get_inputs(doc):
-            indices = torch.randint(0, len(doc), (num_pairs,))
-            input_words = [self.vocab.get_ids(doc[i]) for i in indices]
-            return input_words
+            doc = doc.split()
+            return self.embeddings.get_vectors(self.vocab.get_ids(doc))[:num_pairs]
 
         if not hasattr(self, "embeddings") or self.vocab is None:
             raise ValueError("Model has not been trained yet or vocab is not set.")
 
         optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
         inputs = torch.Tensor([get_inputs(doc) for doc in docs])
-        doc_embeddings = torch.rand(len(docs), self.embedding_dim, device=self.device)
+        init_embeddings = torch.rand(len(docs), self.embedding_dim, device=self.device)
         for _ in range(self.inference_epochs):
-            doc_embeddings = self.inference_encoder(doc_embeddings)
+            doc_embeddings = self.inference_encoder(init_embeddings)
             avg = (doc_embeddings + inputs[:, 0, :]) / 2
             out = torch.matmul(avg, inputs[:, 1:, :].transpose(1, 2))
             out = self.activation(out)
