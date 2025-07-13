@@ -1,7 +1,6 @@
 use unicode_normalization::{UnicodeNormalization};
 use unicode_normalization::char::canonical_combining_class;
 use pyo3::prelude::*;
-// use pyo3::class::{basic::PyObjectProtocol, sequence::PySequenceProtocol, iter::PyIterProtocol};
 use rayon::prelude::*;
 use regex::Regex;
 
@@ -118,48 +117,6 @@ pub fn simple_preprocessing(
         .collect();
     Ok(Tokens::new(tokens))
 }
-
-// #[pyproto]
-// impl PyObjectProtocol for Tokens {
-//     fn __repr__(&self) -> PyResult<String> {
-//         Ok(format!("<Tokens [{} documents]>", self.tokens.len()))
-//     }
-// }
-
-// #[pyproto]
-// impl PySequenceProtocol for Tokens {
-//     fn __len__(&self) -> PyResult<usize> {
-//         Ok(self.tokens.len())
-//     }
-
-//     fn __getitem__(&self, idx: isize) -> PyResult<Vec<String>> {
-//         let len = self.tokens.len() as isize;
-//         let i = if idx < 0 { len + idx } else { idx } as usize;
-//         Ok(self.tokens[i].clone())
-//     }
-// }
-
-// #[pyproto]
-// impl PyIterProtocol for Tokens {
-//     fn __iter__(slf: PyRefMut<Self>) -> PyResult<Py<Tokens>> {
-//         Ok(slf.into())
-//     }
-
-//     fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<Vec<String>>> {
-//         Ok(if slf.tokens.is_empty() {
-//             None
-//         } else {
-//             Some(slf.tokens.remove(0))
-//         })
-//     }
-// }
-
-// #[pymodule]
-// fn textproc(py: Python, m: &PyModule) -> PyResult<()> {
-//     m.add_class::<Tokens>()?;
-//     m.add_function(wrap_pyfunction!(simple_preprocessing, m)?)?;
-//     Ok(())
-// }
 
 #[cfg(test)]
 mod tests {
