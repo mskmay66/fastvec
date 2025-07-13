@@ -1,6 +1,6 @@
 #!/bin/bash
 # This script runs the benchmark for the given model and dataset.
-set -e
+# set -e
 
 VENV_PATH = ".venv"
 if [ -f "${VENV_PATH}/bin/activate" ]; then
