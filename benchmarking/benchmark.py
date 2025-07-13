@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import os
 
 import pandas as pd
 from fastvec import Word2Vec, Doc2Vec, simple_preprocessing
@@ -14,8 +15,9 @@ def wall_time(file_path):
             result = func(*args, **kwargs)
             end_time = time.time()
             elapsed_time = end_time - start_time
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "a") as f:
-                f.write(f"{func.__name__}:{elapsed_time:.2f}")
+                f.write(f"{func.__name__}: {elapsed_time:.6f}\n")
             return result
 
         return wrapper
@@ -34,11 +36,13 @@ def load_food_reviews(file_path):
         List[str]: Preprocessed food reviews.
     """
     df = pd.read_csv(file_path)
+    df = df.sample(frac=0.1, random_state=42)
+    print(f"Loaded {len(df)} food reviews from {file_path}")
     reviews = df["Text"].tolist()
-    return reviews.sample(frac=1, random_state=42)
+    return reviews
 
 
-@wall_time("benchmarking/fastvec_food_reviews.txt")
+@wall_time("walltimes/fastvec_food_reviews.txt")
 def preprocess_reviews(reviews):
     """
     Preprocess food reviews by tokenizing and removing punctuation.
@@ -52,7 +56,7 @@ def preprocess_reviews(reviews):
     return simple_preprocessing(reviews, deacc=True)
 
 
-@wall_time("benchmarking/fastvec_food_reviews.txt")
+@wall_time("walltimes/fastvec_food_reviews.txt")
 def train_doc2vec_on_food_reviews(tokens, embedding_dim=64, epochs=10):
     """
     Train a Doc2Vec model on food reviews.
@@ -70,7 +74,7 @@ def train_doc2vec_on_food_reviews(tokens, embedding_dim=64, epochs=10):
     return model
 
 
-@wall_time("benchmarking/fastvec_food_reviews.txt")
+@wall_time("walltimes/fastvec_food_reviews.txt")
 def train_word2vec_on_food_reviews(tokens, embedding_dim=64, epochs=10):
     """
     Train a Word2Vec model on food reviews.
@@ -88,7 +92,7 @@ def train_word2vec_on_food_reviews(tokens, embedding_dim=64, epochs=10):
     return model
 
 
-@wall_time("benchmarking/fastvec_food_reviews.txt")
+@wall_time("walltimes/fastvec_food_reviews.txt")
 def inference(model, inference_tokens):
     """
     Perform inference on the trained Doc2Vec model.
@@ -131,7 +135,7 @@ def main():
     # seperate into train and test sets
     idx = int(len(reviews) * 0.8)
     train_reviews, test_reviews = reviews[:idx], reviews[idx:]
-
+    print(f"Train reviews: {len(train_reviews)}, Test reviews: {len(test_reviews)}")
     tokens = preprocess_reviews(train_reviews)
 
     # Train Doc2Vec model on the food reviews
@@ -143,11 +147,10 @@ def main():
         model = train_doc2vec_on_food_reviews(tokens, embedding_dim=64, epochs=10)
 
     # Example usage: Get embeddings for a specific review
-    inference_tokens = preprocess_reviews(test_reviews)
-    inference(model, inference_tokens)
+    inference(model, test_reviews)
 
     # read wall times and generate a report
-    with open("benchmarking/fastvec_food_reviews.txt", "r") as f:
+    with open("walltimes/fastvec_food_reviews.txt", "r") as f:
         lines = f.readlines()
         for line in lines:
             print(line.strip())

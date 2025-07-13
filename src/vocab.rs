@@ -40,7 +40,7 @@ impl Vocab {
         let n = vocab.size;
         vocab.valid_ids = words
             .par_iter()
-            .filter_map(|word| { 
+            .filter_map(|word| {
                 if let Some(id) = vocab.word_to_id.get(word) {
                     subsample(id, &word_to_freq, n)
                 } else {
@@ -52,7 +52,7 @@ impl Vocab {
     }
 
     pub fn get_ids(&self, words: Vec<String>) -> PyResult<Vec<usize>> {
-        Ok(words.par_iter().map(|word| self.word_to_id[word]).collect())
+        Ok(words.par_iter().filter_map(|word| self.get_id(word).unwrap()).collect())
     }
 
     pub fn add_word(&mut self, word: &str) -> PyResult<()> {
@@ -67,7 +67,10 @@ impl Vocab {
     }
 
     pub fn get_id(&self, word: &str) -> PyResult<Option<usize>> {
-        Ok(self.word_to_id.get(word).cloned())
+        match self.word_to_id.get(word) {
+            Some(&id) => Ok(Some(id)),
+            None => Ok(None),
+        }
     }
 }
 

@@ -38,16 +38,16 @@ impl Embedding {
         Ok(())
     }
 
-    pub fn get_vector(&self, id: usize) -> Option<&Vec<f32>> {
-        self.vectors.get(&id)
+    pub fn get_vector(&self, id: usize) -> PyResult<Option<Vec<f32>>> {
+        match self.vectors.get(&id) {
+            Some(vector) => Ok(Some(vector.clone())),
+            None => Ok(None),
+        }
     }
 
     pub fn get_vectors(&self, ids: Vec<usize>) -> PyResult<Vec<Vec<f32>>> {
-        ids.par_iter().map(|id| {
-            match self.get_vector(id.clone()) {
-                Some(vector) => Ok(vector.clone()),
-                None => Err(pyo3::exceptions::PyKeyError::new_err("Vector not found for the given ID or word")),
-            }
-        }).collect()
+        Ok(ids.par_iter().filter_map(|id| {
+            self.get_vector(id.clone()).unwrap()
+        }).collect())
     }
 }

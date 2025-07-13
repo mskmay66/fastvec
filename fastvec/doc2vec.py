@@ -123,6 +123,10 @@ class Doc2Vec(Word2Vec):
         """
         Get the learned embeddings.
 
+        Args:
+            docs (List[str]): List of documents to infer embeddings for.
+            num_pairs (int): Number of word pairs to consider per document.
+
         Returns:
             torch.Tensor: The learned embeddings.
 

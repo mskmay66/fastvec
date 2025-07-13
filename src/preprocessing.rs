@@ -1,7 +1,7 @@
 use unicode_normalization::{UnicodeNormalization};
 use unicode_normalization::char::canonical_combining_class;
 use pyo3::prelude::*;
-use pyo3::class::{basic::PyObjectProtocol, sequence::PySequenceProtocol, iter::PyIterProtocol};
+// use pyo3::class::{basic::PyObjectProtocol, sequence::PySequenceProtocol, iter::PyIterProtocol};
 use rayon::prelude::*;
 use regex::Regex;
 
@@ -55,6 +55,7 @@ fn deaccent(text: &str) -> String {
 
 #[pyclass]
 pub struct Tokens {
+    #[pyo3(get)]
     tokens: Vec<Vec<String>>,
 }
 
@@ -68,9 +69,40 @@ impl Tokens {
     pub fn flatten(&self) -> PyResult<Vec<String>> {
         Ok(self.tokens.iter().flat_map(|doc| doc.iter().cloned()).collect())
     }
+
+    pub fn __len__(&self) -> PyResult<usize> {
+        Ok(self.tokens.len())
+    }
+
+    pub fn __getitem__(&self, idx: isize) -> PyResult<Vec<String>> {
+        let len = self.tokens.len() as isize;
+        let i = if idx < 0 { len + idx } else { idx } as usize;
+        if i >= self.tokens.len() {
+            Err(pyo3::exceptions::PyIndexError::new_err("Index out of range"))
+        } else {
+            Ok(self.tokens[i].clone())
+        }
+    }
+
+    pub fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("<Tokens [{} documents]>", self.tokens.len()))
+    }
+
+    pub fn __iter__(slf: PyRefMut<Self>) -> PyResult<Py<Tokens>> {
+        Ok(slf.into())
+    }
+
+    pub fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<Vec<String>>> {
+        Ok(if slf.tokens.is_empty() {
+            None
+        } else {
+            Some(slf.tokens.remove(0))
+        })
+    }
 }
 
 #[pyfunction]
+#[pyo3(signature = (corpus, deacc=None, lowercase=None, split_pattern=None))]
 pub fn simple_preprocessing(
     corpus: Vec<String>,
     deacc: Option<bool>,
@@ -87,47 +119,47 @@ pub fn simple_preprocessing(
     Ok(Tokens::new(tokens))
 }
 
-#[pyproto]
-impl PyObjectProtocol for Tokens {
-    fn __repr__(&self) -> PyResult<String> {
-        Ok(format!("<Tokens [{} documents]>", self.tokens.len()))
-    }
-}
+// #[pyproto]
+// impl PyObjectProtocol for Tokens {
+//     fn __repr__(&self) -> PyResult<String> {
+//         Ok(format!("<Tokens [{} documents]>", self.tokens.len()))
+//     }
+// }
 
-#[pyproto]
-impl PySequenceProtocol for Tokens {
-    fn __len__(&self) -> PyResult<usize> {
-        Ok(self.tokens.len())
-    }
+// #[pyproto]
+// impl PySequenceProtocol for Tokens {
+//     fn __len__(&self) -> PyResult<usize> {
+//         Ok(self.tokens.len())
+//     }
 
-    fn __getitem__(&self, idx: isize) -> PyResult<Vec<String>> {
-        let len = self.tokens.len() as isize;
-        let i = if idx < 0 { len + idx } else { idx } as usize;
-        Ok(self.tokens[i].clone())
-    }
-}
+//     fn __getitem__(&self, idx: isize) -> PyResult<Vec<String>> {
+//         let len = self.tokens.len() as isize;
+//         let i = if idx < 0 { len + idx } else { idx } as usize;
+//         Ok(self.tokens[i].clone())
+//     }
+// }
 
-#[pyproto]
-impl PyIterProtocol for Tokens {
-    fn __iter__(slf: PyRefMut<Self>) -> PyResult<Py<Tokens>> {
-        Ok(slf.into())
-    }
+// #[pyproto]
+// impl PyIterProtocol for Tokens {
+//     fn __iter__(slf: PyRefMut<Self>) -> PyResult<Py<Tokens>> {
+//         Ok(slf.into())
+//     }
 
-    fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<Vec<String>>> {
-        Ok(if slf.tokens.is_empty() {
-            None
-        } else {
-            Some(slf.tokens.remove(0))
-        })
-    }
-}
+//     fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<Vec<String>>> {
+//         Ok(if slf.tokens.is_empty() {
+//             None
+//         } else {
+//             Some(slf.tokens.remove(0))
+//         })
+//     }
+// }
 
-#[pymodule]
-fn textproc(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<Tokens>()?;
-    m.add_function(wrap_pyfunction!(simple_preprocessing, m)?)?;
-    Ok(())
-}
+// #[pymodule]
+// fn textproc(py: Python, m: &PyModule) -> PyResult<()> {
+//     m.add_class::<Tokens>()?;
+//     m.add_function(wrap_pyfunction!(simple_preprocessing, m)?)?;
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {

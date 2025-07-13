@@ -1,5 +1,13 @@
-from .fastvec import Vocab, Embedding, Builder, Tokens
+from .fastvec import Vocab, Embedding, Builder, Tokens, simple_preprocessing
 from .word2vec import Word2Vec
 from .doc2vec import Doc2Vec
 
-__all__ = ["Word2Vec", "Doc2Vec", "Vocab", "Embedding", "Builder", "Tokens"]
+__all__ = [
+    "Word2Vec",
+    "Doc2Vec",
+    "Vocab",
+    "Embedding",
+    "Builder",
+    "Tokens",
+    "simple_preprocessing",
+]
