@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn test_embedding_creation() {
-        let mut embedding = Embedding::new(3);
+        let embedding = Embedding::new(3);
         assert_eq!(embedding.dim, 3);
         assert!(embedding.vectors.is_empty());
     }
@@ -86,7 +86,7 @@ mod tests {
         let ids = vec![1, 2, 3];
         let vectors = vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6], vec![0.7, 0.8, 0.9]];
 
-        embedding.add_vectors(ids.clone(), vectors).unwrap();
+        embedding.add_vectors(ids.clone(), vectors.clone()).unwrap();
         assert_eq!(embedding.vectors.len(), 3);
 
         for (id, vector) in ids.iter().zip(vectors) {
@@ -121,6 +121,6 @@ mod tests {
         assert_eq!(vectors[1], vec![0.4, 0.5, 0.6]);
         let vectors = embedding.get_vectors(vec![3, 4]).unwrap();
         assert!(vectors.is_empty()); // IDs 3 and 4 do not exist
-        assert_eq!(embedding.get_vectors(vec![]).unwrap(), vec![]); // Empty input should return empty vector
+        assert_eq!(embedding.get_vectors(vec![]).unwrap(), Vec::<Vec<f32>>::new()); // Empty input should return empty vector
     }
 }

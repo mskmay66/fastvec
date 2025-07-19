@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn test_deaccent() {
         assert_eq!(deaccent("é"), "e");
-        assert_eq!(deaccent("ÀçÇ"), "aCc");
+        assert_eq!(deaccent("ÀçÇ"), "AcC");
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use rayon::prelude::*;
 use pyo3::prelude::*;
 use std::collections::HashMap;
+use rand::prelude::*;
 
 
 #[pyclass]
@@ -31,7 +32,7 @@ impl Vocab {
         let mut vocab = Vocab::new();
         let mut word_to_freq: HashMap<usize, f64> = HashMap::new();
         words.iter().for_each(|word| {
-            vocab.add_word(word);
+            let _ = vocab.add_word(word);
             word_to_freq
                 .entry(vocab.word_to_id[word])
                 .and_modify(|e| *e += 1.0)
@@ -71,6 +72,21 @@ impl Vocab {
             Some(&id) => Ok(Some(id)),
             None => Ok(None),
         }
+    }
+
+    pub fn get_random_id(&self, avoid: Option<usize>) -> PyResult<usize> {
+        let mut rng = rand::rng();
+        let id = loop {
+            let random_index = rng.random_range(0..(self.size));
+            if let Some(avoid_id) = avoid {
+                if random_index != avoid_id {
+                    break random_index;
+                }
+            } else {
+                break random_index;
+            }
+        };
+        Ok(id)
     }
 }
 
@@ -141,20 +157,33 @@ mod tests {
     }
 
     #[test]
+    fn test_get_random_id() {
+        let mut vocab = Vocab::new();
+        vocab.add_word("apple").unwrap();
+        vocab.add_word("banana").unwrap();
+        vocab.add_word("cherry").unwrap();
+
+        let id = vocab.get_random_id(None).unwrap();
+        assert!(id < vocab.size); // Should return a valid ID
+
+        let id2 = vocab.get_random_id(Some(id)).unwrap();
+        assert!(id2 < vocab.size && id2 != id); // Should return a different valid ID
+    }
+
+    #[test]
     fn test_subsample() {
         let mut word_to_freq = HashMap::new();
-        word_to_freq.insert(0, 0.01);
-        word_to_freq.insert(1, 0.02);
-        word_to_freq.insert(2, 0.03);
+        word_to_freq.insert(0, 0.0001);
+        word_to_freq.insert(1, 0.0001);
+        word_to_freq.insert(2, 0.0003);
 
         let vocab_size = 3;
-
         assert!(subsample(&0, &word_to_freq, vocab_size).is_some());
         assert!(subsample(&1, &word_to_freq, vocab_size).is_some());
         assert!(subsample(&2, &word_to_freq, vocab_size).is_some());
 
         // Test with a frequency that should not be sampled
-        word_to_freq.insert(3, 0.0001);
-        assert!(subsample(&3, &word_to_freq, vocab_size).is_none());
+        word_to_freq.insert(3, 0.5);
+        assert!(subsample(&3, &word_to_freq, vocab_size + 1).is_none());
     }
 }
