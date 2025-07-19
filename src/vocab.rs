@@ -83,3 +83,78 @@ fn subsample(token_id: &usize, word_to_freq: &HashMap<usize, f64>, vocab_size: u
         }
         None
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vocab_creation() {
+        let empty_vocab = Vocab::new();
+        assert_eq!(empty_vocab.size, 0);
+        assert!(empty_vocab.words.is_empty());
+        assert!(empty_vocab.word_to_id.is_empty());
+        assert!(empty_vocab.valid_ids.is_empty());
+
+        let words = vec!["apple".to_string(), "banana".to_string(), "apple".to_string()];
+        let vocab = Vocab::from_words(words);
+        assert_eq!(vocab.size, 2);
+        assert_eq!(vocab.words, vec!["apple", "banana"]);
+        assert_eq!(vocab.word_to_id.get("apple"), Some(&0));
+        assert_eq!(vocab.word_to_id.get("banana"), Some(&1));
+    }
+
+    #[test]
+    fn test_add_word() {
+        let mut vocab = Vocab::new();
+        assert!(vocab.add_word("test").is_ok());
+        assert_eq!(vocab.size, 1);
+        assert_eq!(vocab.words, vec!["test"]);
+        assert_eq!(vocab.word_to_id.get("test"), Some(&0));
+
+        // Adding the same word again should not change the size
+        assert!(vocab.add_word("test").is_ok());
+        assert_eq!(vocab.size, 1);
+    }
+
+    #[test]
+    fn test_get_id() {
+        let mut vocab = Vocab::new();
+        vocab.add_word("apple").unwrap();
+        vocab.add_word("banana").unwrap();
+
+        assert_eq!(vocab.get_id("apple").unwrap(), Some(0));
+        assert_eq!(vocab.get_id("banana").unwrap(), Some(1));
+        assert_eq!(vocab.get_id("cherry").unwrap(), None); // Cherry not added
+    }
+
+    #[test]
+    fn test_get_ids() {
+        let words = vec!["apple".to_string(), "banana".to_string(), "cherry".to_string()];
+        let mut vocab = Vocab::new();
+        for word in &words {
+            vocab.add_word(word).unwrap();
+        }
+        let ids = vocab.get_ids(words).unwrap();
+        assert_eq!(ids, vec![0, 1, 2]); // Assuming apple=0, banana=1, cherry=2
+    }
+
+    #[test]
+    fn test_subsample() {
+        let mut word_to_freq = HashMap::new();
+        word_to_freq.insert(0, 0.01);
+        word_to_freq.insert(1, 0.02);
+        word_to_freq.insert(2, 0.03);
+
+        let vocab_size = 3;
+
+        assert!(subsample(&0, &word_to_freq, vocab_size).is_some());
+        assert!(subsample(&1, &word_to_freq, vocab_size).is_some());
+        assert!(subsample(&2, &word_to_freq, vocab_size).is_some());
+
+        // Test with a frequency that should not be sampled
+        word_to_freq.insert(3, 0.0001);
+        assert!(subsample(&3, &word_to_freq, vocab_size).is_none());
+    }
+}

@@ -76,3 +76,71 @@ impl Builder {
         Ok(examples)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vocab::Vocab;
+
+    #[test]
+    fn test_builder_creation() {
+        let documents = vec![vec!["word1".to_string(), "word2".to_string()], vec!["word3".to_string()]];
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let builder = Builder::new(documents, vocab, Some(5));
+        assert_eq!(builder.documents.len(), 2);
+        assert_eq!(builder.vocab.size, 3);
+        assert_eq!(builder.window, Some(5));
+    }
+
+    #[test]
+    fn test_build_example() {
+        let documents = vec![vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]];
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let builder = Builder::new(documents, vocab, Some(3));
+
+        let encoded_doc: Vec<usize> = builder.vocab.get_ids(vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]).unwrap();
+        let examples = builder.build_example(encoded_doc, 3, None);
+
+        assert!(!examples.is_empty());
+        assert!(examples.iter().all(|e| matches!(e, Example::W2V(_, _, _))));
+
+        let d2v_examples = builder.build_example(encoded_doc, 3, Some(0));
+        assert!(!d2v_examples.is_empty());
+        assert!(d2v_examples.iter().all(|e| matches!(e, Example::D2V(_, _, _, _))));
+    }
+
+    #[test]
+    fn test_build_w2v_training() {
+        let documents = vec![vec!["word1".to_string(), "word2".to_string()], vec!["word3".to_string()]];
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let builder = Builder::new(documents, vocab, Some(3));
+
+        let examples = builder.build_w2v_training().unwrap();
+        assert!(!examples.is_empty());
+        assert!(examples.iter().all(|e| matches!(e, Example::W2V(_, _, _))));
+    }
+
+    #[test]
+    fn test_build_d2v_training() {
+        let documents = vec![vec!["word1".to_string(), "word2".to_string()], vec!["word3".to_string()]];
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let builder = Builder::new(documents, vocab, Some(3));
+
+        let examples = builder.build_d2v_training().unwrap();
+        assert!(!examples.is_empty());
+        assert!(examples.iter().all(|e| matches!(e, Example::D2V(_, _, _, _))));
+    }
+
+    #[test]
+    fn test_negative_sample() {
+        let vocab = Vocab::from_words(vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]);
+        let samples = negative_sample(0, &vocab, 5);
+        assert_eq!(samples.len(), 5);
+        for (input, sample, label) in samples {
+            assert_eq!(input, 0);
+            assert!(vocab.valid_ids.contains(&sample));
+            assert_eq!(label, 0);
+        }
+    }
+}

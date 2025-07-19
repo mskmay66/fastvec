@@ -12,7 +12,6 @@ use build::Example;
 use preprocessing::simple_preprocessing;
 
 
-
 #[pymodule]
 fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Vocab>()?;

@@ -51,3 +51,76 @@ impl Embedding {
         }).collect())
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_embedding_creation() {
+        let mut embedding = Embedding::new(3);
+        assert_eq!(embedding.dim, 3);
+        assert!(embedding.vectors.is_empty());
+    }
+
+    #[test]
+    fn test_add_vector() {
+        let mut embedding = Embedding::new(3);
+        embedding.add_vector(1, vec![0.1, 0.2, 0.3]).unwrap();
+        assert_eq!(embedding.vectors.len(), 1);
+        assert_eq!(embedding.vectors.get(&1), Some(&vec![0.1, 0.2, 0.3]));
+
+        let result = embedding.add_vector(2, vec![0.1, 0.2]); // Should fail due to dimension mismatch
+        assert!(result.is_err());
+
+        let result = embedding.add_vector(2, vec![0.1, 0.2, 0.3]);
+        assert!(result.is_ok());
+        assert_eq!(embedding.vectors.len(), 2);
+        assert_eq!(embedding.vectors.get(&2), Some(&vec![0.1, 0.2, 0.3]));
+    }
+
+    #[test]
+    fn test_add_vectors() {
+        let mut embedding = Embedding::new(3);
+        let ids = vec![1, 2, 3];
+        let vectors = vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6], vec![0.7, 0.8, 0.9]];
+
+        embedding.add_vectors(ids.clone(), vectors).unwrap();
+        assert_eq!(embedding.vectors.len(), 3);
+
+        for (id, vector) in ids.iter().zip(vectors) {
+            assert_eq!(embedding.vectors.get(id), Some(&vector));
+        }
+
+        let result = embedding.add_vectors(vec![4], vec![vec![0.1, 0.2]]); // Should fail due to dimension mismatch
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_vector() {
+        let mut embedding = Embedding::new(3);
+        embedding.add_vector(1, vec![0.1, 0.2, 0.3]).unwrap();
+
+        let vector = embedding.get_vector(1).unwrap();
+        assert_eq!(vector, Some(vec![0.1, 0.2, 0.3]));
+
+        let vector = embedding.get_vector(2).unwrap();
+        assert_eq!(vector, None);
+    }
+
+    #[test]
+    fn test_get_vectors() {
+        let mut embedding = Embedding::new(3);
+        embedding.add_vector(1, vec![0.1, 0.2, 0.3]).unwrap();
+        embedding.add_vector(2, vec![0.4, 0.5, 0.6]).unwrap();
+
+        let vectors = embedding.get_vectors(vec![1, 2, 3]).unwrap();
+        assert_eq!(vectors.len(), 2);
+        assert_eq!(vectors[0], vec![0.1, 0.2, 0.3]);
+        assert_eq!(vectors[1], vec![0.4, 0.5, 0.6]);
+        let vectors = embedding.get_vectors(vec![3, 4]).unwrap();
+        assert!(vectors.is_empty()); // IDs 3 and 4 do not exist
+        assert_eq!(embedding.get_vectors(vec![]).unwrap(), vec![]); // Empty input should return empty vector
+    }
+}
