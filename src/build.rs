@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 use crate::vocab::Vocab;
 use random_word::Lang;
+use itertools::Itertools;
 
 fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
     let mut samples = Vec::new();
@@ -20,6 +21,7 @@ pub enum Example {
 
 #[pyclass]
 pub struct Builder {
+    #[pyo3(get)]
     documents: Vec<Vec<String>>,
     vocab: Vocab,
     window: Option<usize>,
@@ -39,16 +41,18 @@ impl Builder {
     pub fn build_example(&self, encoded_doc: Vec<usize>, context_window: usize, doc_index: Option<usize>) ->  Vec<Example> {
         let mut examples = Vec::new();
         for w in encoded_doc.windows(context_window) {
-            let center = w[context_window / 2];
-            for (i, &word) in w.iter().enumerate() {
-                if i != context_window / 2 {
-                    if let Some(doc_index) = doc_index {
-                        examples.push(Example::D2V(doc_index, center, word, 1));
-                        examples.extend(negative_sample(center, &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::D2V(doc_index, input, sample, label)));
-                    } else {
-                        examples.push(Example::W2V(center, word, 1));
-                        examples.extend(negative_sample(center, &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::W2V(input, sample, label)));
-                    }
+            for permutation in w.iter().cartesian_product(w.iter()) {
+                let (word, context_word) = (permutation.0, permutation.1);
+                if word == context_word {
+                    continue; // Skip if the word is the same as the context word
+                }
+
+                if let Some(doc_index) = doc_index {
+                    examples.push(Example::D2V(doc_index, word.clone(), context_word.clone(), 1));
+                    examples.extend(negative_sample(word.clone(), &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::D2V(doc_index, input, sample, label)));
+                } else {
+                    examples.push(Example::W2V(word.clone(), context_word.clone(), 1));
+                    examples.extend(negative_sample(word.clone(), &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::W2V(input, sample, label)));
                 }
             }
         }

@@ -11,7 +11,9 @@ pub struct Vocab {
     pub size: usize,
     #[pyo3(get)]
     pub words: Vec<String>,
+    #[pyo3(get)]
     pub word_to_id: HashMap<String, usize>,
+    #[pyo3(get)]
     pub valid_ids: Vec<usize>,
 }
 
@@ -43,7 +45,12 @@ impl Vocab {
             .par_iter()
             .filter_map(|word| {
                 if let Some(id) = vocab.word_to_id.get(word) {
-                    subsample(id, &word_to_freq, n)
+                    if words.len() > 100 {
+                        // only subsample larger vocabularies
+                        subsample(id, &word_to_freq, n)
+                    } else {
+                        Some(*id)
+                    }
                 } else {
                     None
                 }

@@ -20,15 +20,6 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "attrs"
-version = "25.3.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/b0/1367933a8532ee6ff8d63537de4f1177af4bff9f3e829baf7331f595bb24/attrs-25.3.0.tar.gz", hash = "sha256:75d7cefc7fb576747b2c81b4442d4d4a1ce0900973527c011d1030fd3bf4af1b", size = 812032, upload_time = "2025-03-13T11:10:22.779Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/06/bb80f5f86020c4551da315d78b3ab75e8228f89f0162f2c3a819e407941a/attrs-25.3.0-py3-none-any.whl", hash = "sha256:427318ce031701fea540783410126f03899a97ffc6f61596ad581ac2e40e3bc3", size = 63815, upload_time = "2025-03-13T11:10:21.14Z" },
-]
-
-[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -65,8 +56,6 @@ benchmark = [
     { name = "pandas", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
 ]
 dev = [
-    { name = "hypothesis", version = "6.113.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "hypothesis", version = "6.136.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pytest", version = "8.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pytest", version = "8.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "ruff" },
@@ -81,7 +70,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 benchmark = [{ name = "pandas", specifier = ">=2.0.3" }]
 dev = [
-    { name = "hypothesis", specifier = ">=6.113.0" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "ruff", specifier = ">=0.12.2" },
 ]
@@ -158,53 +146,6 @@ resolution-markers = [
 sdist = { url = "https://files.pythonhosted.org/packages/00/f7/27f15d41f0ed38e8fcc488584b57e902b331da7f7c6dcda53721b15838fc/fsspec-2025.5.1.tar.gz", hash = "sha256:2e55e47a540b91843b755e83ded97c6e897fa0942b11490113f09e9c443c2475", size = 303033, upload_time = "2025-05-24T12:03:23.792Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/61/78c7b3851add1481b048b5fdc29067397a1784e2910592bc81bb3f608635/fsspec-2025.5.1-py3-none-any.whl", hash = "sha256:24d3a2e663d5fc735ab256263c4075f374a174c3410c0b25e5bd1970bceaa462", size = 199052, upload_time = "2025-05-24T12:03:21.66Z" },
-]
-
-[[package]]
-name = "hypothesis"
-version = "6.113.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.9' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "python_full_version < '3.9' and sys_platform == 'darwin'",
-    "python_full_version < '3.9' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "attrs", marker = "python_full_version < '3.9'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.9'" },
-    { name = "sortedcontainers", marker = "python_full_version < '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/28/32/6513cd7256f38c19a6c8a1d5ce9792bcd35c7f11651989994731f0e97672/hypothesis-6.113.0.tar.gz", hash = "sha256:5556ac66fdf72a4ccd5d237810f7cf6bdcd00534a4485015ef881af26e20f7c7", size = 408897, upload_time = "2024-10-09T03:51:05.707Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/fa/4acb477b86a94571958bd337eae5baf334d21b8c98a04b594d0dad381ba8/hypothesis-6.113.0-py3-none-any.whl", hash = "sha256:d539180eb2bb71ed28a23dfe94e67c851f9b09f3ccc4125afad43f17e32e2bad", size = 469790, upload_time = "2024-10-09T03:51:02.629Z" },
-]
-
-[[package]]
-name = "hypothesis"
-version = "6.136.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.12' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "python_full_version >= '3.12' and sys_platform == 'darwin'",
-    "python_full_version >= '3.12' and sys_platform == 'linux'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform == 'linux'",
-    "python_full_version == '3.10.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "python_full_version == '3.10.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.10.*' and sys_platform == 'linux'",
-    "python_full_version == '3.9.*' and sys_platform != 'darwin' and sys_platform != 'linux'",
-    "python_full_version == '3.9.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.9.*' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "attrs", marker = "python_full_version >= '3.9'" },
-    { name = "exceptiongroup", marker = "python_full_version >= '3.9' and python_full_version < '3.11'" },
-    { name = "sortedcontainers", marker = "python_full_version >= '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/5d/43cb4bb94f038d4ccdbbd7f3572c000413dde8949ab77fd476897762dc6e/hypothesis-6.136.0.tar.gz", hash = "sha256:1d7f0b61195369c043b90484cb2948a369ff83b3584970586d5c9a6f60641625", size = 456682, upload_time = "2025-07-19T04:12:45.969Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/b6/0a7e1f0e79da9396968338d501b5c72c81d70187679d8c57ed349df5d579/hypothesis-6.136.0-py3-none-any.whl", hash = "sha256:a288672440d94f9cd307e3889c4087d1f8c8b114285fcf07ae415b3c7d4a26ab", size = 523667, upload_time = "2025-07-19T04:12:41.761Z" },
 ]
 
 [[package]]
@@ -1103,15 +1044,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload_time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload_time = "2024-12-04T17:35:26.475Z" },
-]
-
-[[package]]
-name = "sortedcontainers"
-version = "2.4.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload_time = "2021-05-16T22:03:42.897Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload_time = "2021-05-16T22:03:41.177Z" },
 ]
 
 [[package]]

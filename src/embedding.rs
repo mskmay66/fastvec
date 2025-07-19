@@ -6,6 +6,7 @@ use std::collections::HashMap;
 #[pyclass]
 pub struct Embedding {
     pub dim: usize,
+    #[pyo3(get)]
     pub vectors: HashMap<usize, Vec<f32>>,
 }
 
@@ -49,6 +50,10 @@ impl Embedding {
         Ok(ids.par_iter().filter_map(|id| {
             self.get_vector(id.clone()).unwrap()
         }).collect())
+    }
+
+    pub fn __len__(&self) -> PyResult<usize> {
+        Ok(self.vectors.len())
     }
 }
 

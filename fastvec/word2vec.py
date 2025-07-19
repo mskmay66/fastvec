@@ -45,7 +45,7 @@ class Word2Vec(nn.Module):
         """Build vocabulary from the corpus.
 
         Args:
-            corpus (List[str]): List of sentences.
+            corpus (List[str]): List of words.
         """
         self.vocab = Vocab.from_words(corpus)
 
@@ -122,7 +122,7 @@ class Word2Vec(nn.Module):
                 optimizer.step()
         return self.save_embeddings(examples)
 
-    def save_embeddings(self, examples) -> Embedding:
+    def save_embeddings(self, examples: DataLoader) -> Embedding:
         """
         Save the learned embeddings.
 

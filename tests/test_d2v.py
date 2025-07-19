@@ -1,4 +1,4 @@
-from fastvec import Doc2Vec, Doc2VecDataset, Builder
+from fastvec import Doc2Vec, Doc2VecDataset, Builder, simple_preprocessing
 import pytest
 import torch
 
@@ -30,28 +30,28 @@ def test_d2v_forward(d2v_model):
 
     output = d2v_model.forward(doc_id, input_words, target_words)
 
-    assert output.shape == (2, 64)  # Output should match embedding dimension
+    assert output.shape == (2,)
     assert output.dtype == torch.float32  # Output should be of float type
 
 
 def test_d2v_build_vocab(d2v_model):
-    corpus = ["hello world", "fastvec is great"]
+    corpus = ["hello", "world", "fastvec", "is", "great"]
     d2v_model.build_vocab(corpus)
 
     assert d2v_model.vocab is not None
-    assert len(d2v_model.vocab) > 0  # Vocabulary should not be empty
-    assert "hello" in d2v_model.vocab.word_to_index
-    assert "world" in d2v_model.vocab.word_to_index
-    assert "fastvec" in d2v_model.vocab.word_to_index
-    assert "is" in d2v_model.vocab.word_to_index
-    assert "great" in d2v_model.vocab.word_to_index
+    assert d2v_model.vocab.size > 0  # Vocabulary should not be empty
+    assert "hello" in d2v_model.vocab.word_to_id
+    assert "world" in d2v_model.vocab.word_to_id
+    assert "fastvec" in d2v_model.vocab.word_to_id
+    assert "is" in d2v_model.vocab.word_to_id
+    assert "great" in d2v_model.vocab.word_to_id
 
 
 def test_d2v_dataset(d2v_model):
     corpus = ["hello world", "fastvec is great"]
-    d2v_model.build_vocab(corpus)
-
-    builder = Builder(corpus, d2v_model.vocab, window_size=1)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    d2v_model.build_vocab(tokens.flatten())
+    builder = Builder(tokens.tokens, d2v_model.vocab, 3)
     examples = builder.build_d2v_training()
 
     dataset = Doc2VecDataset(examples)
@@ -72,10 +72,9 @@ def test_d2v_dataset(d2v_model):
 
 def test_d2v_training_set(d2v_model):
     corpus = ["hello world", "fastvec is great"]
-    d2v_model.build_vocab(corpus)
-
-    _ = Builder(corpus, d2v_model.vocab, window_size=1)
-    training_set = d2v_model.build_training_set(corpus, window_size=1)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    d2v_model.build_vocab(tokens.flatten())
+    training_set = d2v_model.build_training_set(tokens.tokens, window_size=3)
 
     assert isinstance(training_set, torch.utils.data.DataLoader)
     assert len(training_set.dataset) > 0  # Training set should not be empty
@@ -92,61 +91,37 @@ def test_d2v_training_set(d2v_model):
 
 def test_d2v_training(d2v_model):
     corpus = ["hello world", "fastvec is great"]
-    d2v_model.build_vocab(corpus)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    d2v_model.train(tokens, window_size=3)
+    assert d2v_model.vocab is not None
+    assert d2v_model.vocab.size > 0  # Vocabulary should not be empty
 
-    training_set = d2v_model.build_training_set(corpus, window_size=1)
-
-    assert isinstance(training_set, torch.utils.data.DataLoader)
-    assert len(training_set.dataset) > 0  # Training set should not be empty
-    for batch in training_set:
-        assert "doc_id" in batch
-        assert "input_words" in batch
-        assert "target_words" in batch
-        assert "label" in batch
-        assert batch["doc_id"].dtype == torch.float32
-        assert batch["input_words"].dtype == torch.float32
-        assert batch["target_words"].dtype == torch.float32
-        assert batch["label"].dtype == torch.float32
+    assert (
+        d2v_model.embeddings is not None
+    )  # Ensure embeddings are created after training
 
 
 def test_d2v_inference(d2v_model):
     corpus = ["hello world", "fastvec is great"]
-    d2v_model.build_vocab(corpus)
+    tokens = simple_preprocessing(corpus, deacc=True)
 
-    training_set = d2v_model.build_training_set(corpus, window_size=1)
-
-    d2v_model.train(training_set, epochs=1)  # Train for one epoch for testing
+    d2v_model.train(tokens, window_size=3)  # Train for one epoch for testing
     assert d2v_model.embeddings is not None  # Ensure embeddings are learned
     assert len(d2v_model.embeddings) > 0  # Ensure embeddings are not empty
-    assert (
-        d2v_model.embeddings.embedding_dim == 64
-    )  # Ensure embedding dimension matches
 
-    for batch in training_set:
-        doc_id = batch["doc_id"]
-        input_words = batch["input_words"]
-        target_words = batch["target_words"]
-
-        output = d2v_model.inference(doc_id, input_words, target_words)
-
-        assert output.shape == (
-            doc_id.shape[0],
-            64,
-        )  # Output should match embedding dimension
-        assert output.dtype == torch.float32  # Output should be of float type
-        break  # Test only one batch
+    output = d2v_model.get_embeddings(["feastvec is swell!"])
+    assert output is not None
+    assert len(output) == 1  # One document should return one embedding
 
 
 def test_d2v_embedding(d2v_model):
     corpus = ["hello world", "fastvec is great"]
-    d2v_model.build_vocab(corpus)
+    tokens = simple_preprocessing(corpus, deacc=True)
 
-    training_set = d2v_model.build_training_set(corpus, window_size=1)
+    d2v_model.train(tokens, window_size=2)
 
-    d2v_model.train(training_set, epochs=1)  # Train for one epoch for testing
-
-    embeddings = d2v_model.get_embeddings()
+    embeddings = d2v_model.get_embeddings(["hello", "world", "fastvec", "is", "great"])
 
     assert embeddings is not None
-    assert embeddings.shape[0] == len(d2v_model.vocab)  # Number of words in vocab
-    assert embeddings.shape[1] == d2v_model.embedding_dim  # Embedding dimension
+    assert len(embeddings) == 5  # Number of words in vocab
+    assert len(embeddings[0]) == d2v_model.embedding_dim  # Embedding dimension

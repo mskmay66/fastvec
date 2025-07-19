@@ -9,6 +9,7 @@ name = "fastvec"
 crate-type = ["cdylib"]
 
 [dependencies]
+itertools = "0.14.0"
 pyo3 = "0.24.0"
 rand = "0.9.1"
 random_word = { version = "0.5.0", features = ["en"] }

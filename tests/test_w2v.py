@@ -1,6 +1,10 @@
-from fastvec import Word2Vec, Word2VecDataset, Builder
+from fastvec import Word2Vec, Word2VecDataset, Builder, simple_preprocessing
 import torch
 import pytest
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -26,34 +30,38 @@ def test_w2v_forward(w2v_model):
     target_words = torch.tensor([[3], [4]], dtype=torch.float32)
 
     output = w2v_model.forward(input_words, target_words)
+    logging.info(f"Output shape: {output.shape}, dtype: {output.dtype}")
 
-    assert output.shape == (2, 64)  # Output should match embedding dimension
+    assert output.shape == (2,)  # Output should match embedding dimension
     assert output.dtype == torch.float32  # Output should be of float type
 
 
 def test_w2v_build_vocab(w2v_model):
-    corpus = ["hello world", "fastvec is great"]
+    corpus = ["hello", "world", "fastvec", "is", "great"]
     w2v_model.build_vocab(corpus)
 
     assert w2v_model.vocab is not None
-    assert len(w2v_model.vocab) > 0  # Vocabulary should not be empty
-    assert "hello" in w2v_model.vocab.word_to_index
-    assert "world" in w2v_model.vocab.word_to_index
-    assert "fastvec" in w2v_model.vocab.word_to_index
-    assert "is" in w2v_model.vocab.word_to_index
-    assert "great" in w2v_model.vocab.word_to_index
+    assert w2v_model.vocab.size > 0  # Vocabulary should not be empty
+    assert "hello" in w2v_model.vocab.word_to_id
+    assert "world" in w2v_model.vocab.word_to_id
+    assert "fastvec" in w2v_model.vocab.word_to_id
+    assert "is" in w2v_model.vocab.word_to_id
+    assert "great" in w2v_model.vocab.word_to_id
 
 
 def test_w2v_dataset(w2v_model):
     corpus = ["hello world", "fastvec is great"]
-    w2v_model.build_vocab(corpus)
-
-    builder = Builder(corpus, w2v_model.vocab, window_size=1)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    logger.info(f"Tokens created: {tokens.flatten()}")
+    w2v_model.build_vocab(tokens.flatten())
+    builder = Builder(tokens.tokens, w2v_model.vocab, 3)
+    logger.info(f"Builder created: {builder.documents}")
     examples = builder.build_w2v_training()
+    logger.info(f"Examples created of type: {type(examples)}")
 
     dataset = Word2VecDataset(examples)
-
     assert len(dataset) == len(examples)
+    assert len(examples) > 0  # Ensure examples are created
 
     sample = dataset[0]
     assert isinstance(sample, dict)
@@ -67,10 +75,10 @@ def test_w2v_dataset(w2v_model):
 
 def test_w2v_training_set(w2v_model):
     corpus = ["hello world", "fastvec is great"]
-    w2v_model.build_vocab(corpus)
-
-    _ = Builder(corpus, w2v_model.vocab, window_size=1)
-    training_set = w2v_model.build_training_set(corpus, window_size=1)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    logger.info(f"Tokens created: {tokens.flatten()}")
+    w2v_model.build_vocab(tokens.flatten())
+    training_set = w2v_model.build_training_set(tokens.tokens, window_size=3)
 
     assert isinstance(training_set, torch.utils.data.DataLoader)
     assert len(training_set.dataset) > 0  # Training set should not be empty
@@ -85,17 +93,11 @@ def test_w2v_training_set(w2v_model):
 
 def test_w2v_training(w2v_model):
     corpus = ["hello world", "fastvec is great"]
-    w2v_model.build_vocab(corpus)
-
-    training_set = w2v_model.build_training_set(corpus, window_size=1)
-
-    # Simulate training
-    for epoch in range(1):
-        for batch in training_set:
-            input_words = batch["input_words"]
-            target_words = batch["target_words"]
-            output = w2v_model.forward(input_words, target_words)
-            assert output.shape == (input_words.shape[0], w2v_model.embedding_dim)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    logger.info(f"Tokens created: {tokens.flatten()}")
+    w2v_model.train(tokens, window_size=3)
+    assert w2v_model.vocab is not None
+    assert w2v_model.vocab.size > 0  # Vocabulary should not be empty
 
     assert (
         w2v_model.embeddings is not None
@@ -104,19 +106,20 @@ def test_w2v_training(w2v_model):
 
 def test_w2v_embedding(w2v_model):
     corpus = ["hello world", "fastvec is great"]
-    w2v_model.build_vocab(corpus)
+    tokens = simple_preprocessing(corpus, deacc=True)
+    logger.info(f"Tokens created: {tokens.flatten()}")
 
-    training_set = w2v_model.build_training_set(corpus, window_size=1)
+    w2v_model.build_vocab(tokens.flatten())
+    logger.info(f"Vocabulary created: {w2v_model.vocab.valid_ids}")
+    builder = Builder(tokens.tokens, w2v_model.vocab, 3)
+    logger.info(f"Builder created: {builder.documents}")
+    examples = builder.build_w2v_training()
+    logger.info(f"Examples created: {[example[0] for example in examples]}")
 
-    # Simulate training
-    for _ in range(1):
-        for batch in training_set:
-            input_words = batch["input_words"]
-            target_words = batch["target_words"]
-            _ = w2v_model.forward(input_words, target_words)
+    w2v_model.train(tokens, window_size=2)
 
-    embeddings = w2v_model.get_embeddings()
+    embeddings = w2v_model.get_embeddings(["hello", "world", "fastvec", "is", "great"])
 
     assert embeddings is not None
-    assert embeddings.shape[0] == len(w2v_model.vocab)  # Number of words in vocab
-    assert embeddings.shape[1] == w2v_model.embedding_dim  # Embedding dimension
+    assert len(embeddings) == 5  # Number of words in vocab
+    assert len(embeddings[0]) == w2v_model.embedding_dim  # Embedding dimension
