@@ -37,7 +37,7 @@ jobs:
           command: build
       - name: Run tests
         run: |
-          pytest tests/
+          uv run pytest tests/
 
   test_rust:
     runs-on: ubuntu-latest
