@@ -9,6 +9,14 @@ def w2v_model():
     return w2v
 
 
+@pytest.fixture(scope="module")
+def trained_w2v_model(w2v_model):
+    corpus = ["hello world", "fastvec is great"]
+    tokens = simple_preprocessing(corpus, deacc=True)
+    w2v_model.train(tokens, window_size=2)
+    return w2v_model
+
+
 def test_w2v_creation(w2v_model):
     assert w2v_model.embedding_dim == 64
     assert w2v_model.epochs == 10
@@ -82,28 +90,20 @@ def test_w2v_training_set(w2v_model):
         assert batch["label"].dtype == torch.float32
 
 
-def test_w2v_training(w2v_model):
-    corpus = ["hello world", "fastvec is great"]
-    tokens = simple_preprocessing(corpus, deacc=True)
-    w2v_model.train(tokens, window_size=3)
-    assert w2v_model.vocab is not None
-    assert w2v_model.vocab.size > 0  # Vocabulary should not be empty
+def test_w2v_training(trained_w2v_model):
+    assert trained_w2v_model.vocab is not None
+    assert trained_w2v_model.vocab.size > 0  # Vocabulary should not be empty
 
     assert (
-        w2v_model.embeddings is not None
+        trained_w2v_model.embeddings is not None
     )  # Ensure embeddings are created after training
 
 
-def test_w2v_embedding(w2v_model):
-    corpus = ["hello world", "fastvec is great"]
-    tokens = simple_preprocessing(corpus, deacc=True)
-
-    w2v_model.build_vocab(tokens.flatten())
-
-    w2v_model.train(tokens, window_size=2)
-
-    embeddings = w2v_model.get_embeddings(["hello", "world", "fastvec", "is", "great"])
+def test_w2v_embedding(trained_w2v_model):
+    embeddings = trained_w2v_model.get_embeddings(
+        ["hello", "world", "fastvec", "is", "great"]
+    )
 
     assert embeddings is not None
     assert len(embeddings) == 5  # Number of words in vocab
-    assert len(embeddings[0]) == w2v_model.embedding_dim  # Embedding dimension
+    assert len(embeddings[0]) == trained_w2v_model.embedding_dim  # Embedding dimension

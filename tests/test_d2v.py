@@ -9,6 +9,14 @@ def d2v_model():
     return d2v
 
 
+@pytest.fixture(scope="module")
+def trained_d2v_model(d2v_model):
+    corpus = ["hello world", "fastvec is great"]
+    tokens = simple_preprocessing(corpus, deacc=True)
+    d2v_model.train(tokens, window_size=2)
+    return d2v_model
+
+
 def test_d2v_creation(d2v_model):
     assert d2v_model.embedding_dim == 64
     assert d2v_model.epochs == 10
@@ -89,39 +97,29 @@ def test_d2v_training_set(d2v_model):
         assert batch["label"].dtype == torch.float32
 
 
-def test_d2v_training(d2v_model):
-    corpus = ["hello world", "fastvec is great"]
-    tokens = simple_preprocessing(corpus, deacc=True)
-    d2v_model.train(tokens, window_size=3)
-    assert d2v_model.vocab is not None
-    assert d2v_model.vocab.size > 0  # Vocabulary should not be empty
+def test_d2v_training(trained_d2v_model):
+    assert trained_d2v_model.vocab is not None
+    assert trained_d2v_model.vocab.size > 0  # Vocabulary should not be empty
 
     assert (
-        d2v_model.embeddings is not None
+        trained_d2v_model.embeddings is not None
     )  # Ensure embeddings are created after training
 
 
-def test_d2v_inference(d2v_model):
-    corpus = ["hello world", "fastvec is great"]
-    tokens = simple_preprocessing(corpus, deacc=True)
+def test_d2v_inference(trained_d2v_model):
+    assert trained_d2v_model.embeddings is not None  # Ensure embeddings are learned
+    assert len(trained_d2v_model.embeddings) > 0  # Ensure embeddings are not empty
 
-    d2v_model.train(tokens, window_size=3)  # Train for one epoch for testing
-    assert d2v_model.embeddings is not None  # Ensure embeddings are learned
-    assert len(d2v_model.embeddings) > 0  # Ensure embeddings are not empty
-
-    output = d2v_model.get_embeddings(["feastvec is swell!"])
+    output = trained_d2v_model.get_embeddings(["feastvec is swell!"])
     assert output is not None
     assert len(output) == 1  # One document should return one embedding
 
 
-def test_d2v_embedding(d2v_model):
-    corpus = ["hello world", "fastvec is great"]
-    tokens = simple_preprocessing(corpus, deacc=True)
-
-    d2v_model.train(tokens, window_size=2)
-
-    embeddings = d2v_model.get_embeddings(["hello", "world", "fastvec", "is", "great"])
+def test_d2v_embedding(trained_d2v_model):
+    embeddings = trained_d2v_model.get_embeddings(
+        ["hello", "world", "fastvec", "is", "great"]
+    )
 
     assert embeddings is not None
     assert len(embeddings) == 5  # Number of words in vocab
-    assert len(embeddings[0]) == d2v_model.embedding_dim  # Embedding dimension
+    assert len(embeddings[0]) == trained_d2v_model.embedding_dim  # Embedding dimension
