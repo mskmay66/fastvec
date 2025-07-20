@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from typing import List
 
 from fastvec import Vocab, Embedding, Builder, Tokens
+from .model import FastvecModel
 
 
 class Word2VecDataset(Dataset):
@@ -23,7 +24,7 @@ class Word2VecDataset(Dataset):
         }
 
 
-class Word2Vec(nn.Module):
+class Word2Vec(nn.Module, FastvecModel):
     def __init__(self, embedding_dim, epochs=100):
         super(Word2Vec, self).__init__()
         self.embedding_dim = embedding_dim

@@ -110,7 +110,7 @@ def test_d2v_inference(trained_d2v_model):
     assert trained_d2v_model.embeddings is not None  # Ensure embeddings are learned
     assert len(trained_d2v_model.embeddings) > 0  # Ensure embeddings are not empty
 
-    output = trained_d2v_model.get_embeddings(["feastvec is swell!"])
+    output = trained_d2v_model.get_embeddings(["fastvec is swell!"])
     assert output is not None
     assert len(output) == 1  # One document should return one embedding
 
