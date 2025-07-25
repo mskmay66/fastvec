@@ -17,7 +17,12 @@ echo "Make sure you have downloaded the dataset from https://www.kaggle.com/data
 unzip amazon-reviews.zip -d amazon-reviews
 
 echo "Running benchmark for model: $1 with embedding dimension: $2"
-python benchmark.py \
+python benchmark_fastvec.py \
+    --path amazon-reviews/Reviews.csv \
+    --model $1 \
+    --embedding_dim $2
+
+python benchmark_gensim.py \
     --path amazon-reviews/Reviews.csv \
     --model $1 \
     --embedding_dim $2
