@@ -6,79 +6,45 @@ use ndarray::{Array2, ArrayView2};
 use ndarray_rand::rand_distr::Uniform;
 use rayon::prelude::*;
 
+
 #[pyclass]
-struct _Doc2Vec {
-    embedding_dim: usize,
-    vocab_size: usize,
-    input_layer: Layer,
-    target_layer: Layer,
-    doc_layer: Layer,
+struct DocumentLayer {
+    layer: Layer,
     lr: f32,
 }
 
 #[pymethods]
-impl _Doc2Vec {
+impl DocumentLayer {
     #[new]
-    fn new(embedding_dim: usize, vocab_size: usize, lr: f32) -> Self {
-        let input_layer = Layer::new(embedding_dim);
-        let target_layer = Layer::new(embedding_dim);
-        let doc_layer = Layer::new(embedding_dim);
-        _Doc2Vec {
-            embedding_dim,
-            vocab_size,
-            input_layer,
-            target_layer,
-            doc_layer,
-            lr,
-        }
+    fn new(embedding_dim: usize, lr: f32) -> Self {
+        let layer = Layer::new(embedding_dim);
+        DocumentLayer { layer, lr }
     }
 
-    fn forward(&self, input: ArrayView2<usize>, target: ArrayView2<usize>, doc: ArrayView2<usize>) -> Array2<f32> {
-        let input_embed = self.input_layer.forward(input);
-        let target_embed = self.target_layer.forward(target);
-        let doc_embed = self.doc_layer.forward(doc);
-        let combined = (doc_embeddings + input_embeddings) / 2;
-        sigmoid(combined.dot(&target_embed.t()).diag());
+    fn forward(&self, input: ArrayView2<f32>) -> Array2<f32> {
+        self.layer.forward(input)
     }
 
-
-    fn backward(&self, loss: Array2<f32>, input: Array2<f32>, target: Array2<f32>, output: Array2<f32>, y0: Array2<f32>, y1: Array2<f32>, y3: Array2<f32>) {
-        // let base = loss.dot()
+    fn backward(&self, loss: Array2<f32>, doc_vec: ArrayView2<f32>, input: ArrayView2<f32>) {
         let wr_z = loss.dot(output * (1 - output)); // sigmoid gradient
-        let input_doc_avg_bias_grad = wr_z.dot(y1); // gradient w.r.t. input word embedding
-        let target_bias_grad = wr_z.dot((y0 + y3) / 2); // gradient w.r.t. target word embedding
-        let target_grad = target_bias_grad.dot(target.t());
-        let input_grad = input_doc_avg_bias_grad.dot(input.t()) * 0.5; // gradient w.r.t. input layer weights
-        let doc_grad = input_doc_avg_bias_grad.dot(doc.t()) * 0.5; // gradient w.r.t. doc layer weights
-
-        // update weights and biases
-        self.input_layer.biases -= &(input_doc_avg_bias_grad * self.lr * 0.5);
-        self.doc_layer.biases -= &(input_doc_avg_bias_grad * self.lr * 0.5);
-        self.target_layer.biases -= &(target_bias_grad * self.lr);
-        self.doc_layer.biases -= &(doc_grad * self.lr);
-        self.input_layer.weights -= &(input_grad * self.lr);
-        self.target_layer.weights -= &(target_grad * self.lr);
-        self.doc_layer.weights -= &(doc_grad * self.lr);
+        let doc_gradient = wr_z.dot(doc_vec); // gradient w.r.t. input word embedding
+        let grad = doc_gradient.dot(&input.t());
+        self.layer.weights -= &(grad * lr);
+        self.layer.biases -= &(doc_gradient * self.lr);
     }
 
-
-    fn __call__(&self, input: Vec<usize>, target: Vec<usize>, doc: Vec<usize>, label: Vec<usize>, grad: Option<bool>) -> PyResult<Vec<Vec<f32>>> {
-        let input_array = Array2::from_shape_vec((1, input.len()), input).unwrap();
-        let target_array = Array2::from_shape_vec((1, target.len()), target).unwrap();
-        let doc_array = Array2::from_shape_vec((1, doc.len()), doc).unwrap();
-        let label_array = Array2::from_shape_vec((1, label.len()), label).unwrap();
-
-        let out = self.forward(input, target, doc);
-        if grad.unwrap_or(false) {
-            self.backward(out.clone(), label);
+    pub fn infer_vectors(&self, input: ArrayView2, word_vector: ArrayView2, epochs: Option<u32>) -> PyResult<Array2<f32>> {
+        // start with random embedding vector
+        let mut embedding = Array2::random((1, self.layer.weights.shape()[1]), Uniform::new(-1.0, 1.0));
+        let mut prev_embedding = embedding.clone();
+        let mut sim = 0;
+        for _ in 0..epochs {
+            embedding = self.forward(embedding);
+            sim = (input_output * target_output).par_iter().sum::<f32>();
+            loss = binary_entropy_loss(sigmoid(sim), Array2::ones((1, input.len())));
+            self.backward(loss, embedding.view(), prev_embedding.view());
+            prev_embedding = embedding.clone();
         }
-
-        Ok(out.par_iter().map(|&x| x as f32).collect())
-    }
-
-    fn infer_vectors(&self, doc: Vec<usize>) -> PyResult<Vec<f32>> {
-        // let doc_array = Array2::from_shape_vec((1, doc.len()), doc).unwrap();
-        // let doc_embed = self.doc_layer.forward(doc_array.view());
-        // Ok(doc_embed.par_iter().map(|&x| x as f32).collect())
+        Ok(embedding)
     }
 }

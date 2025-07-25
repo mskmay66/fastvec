@@ -71,7 +71,7 @@ impl _Word2Vec {
         (sigmoid(consine_sim) , input_output, target_output)
     }
 
-    fn backward(&self, loss: Array2<f32>, input: Array2<f32>, target: Array2<f32>, output: Array2<f32>, y0: Array2<f32>, y1: Array2<f32>) {
+    fn backward(&self, loss: Array2<f32>, input: Array2<f32>, target: Array2<f32>, output: Array2<f32>, y0: Array2<f32>, y1: Array2<f32>) -> PyResult<()> {
         // loss is the binary cross-entropy loss
         // input is the word vector for the input word
         // target is the context word vector
@@ -89,6 +89,7 @@ impl _Word2Vec {
         self.target_layer.biases -= &(target_bias_grad * self.lr);
         self.input_layer.weights -= &(input_grad * self.lr);
         self.target_layer.weights -= &(target_grad * self.lr);
+        Ok()
     }
 
     fn __call__(&self, input: Vec<usize>, target: Vec<usize>, label: Vec<u32>, grad: Option<bool>) -> PyResult<Vec<Vec<f32>>> {
