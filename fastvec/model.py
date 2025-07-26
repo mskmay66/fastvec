@@ -21,13 +21,6 @@ class FastvecModel(ABC):
         pass
 
     @abstractmethod
-    def save_embeddings(self, *args, **kwargs):
-        """
-        Save the learned embeddings to a file or return them.
-        """
-        pass
-
-    @abstractmethod
     def build_vocab(self, *args, **kwargs):
         """
         Build the vocabulary from the provided data.
@@ -38,5 +31,25 @@ class FastvecModel(ABC):
     def build_training_set(self, *args, **kwargs):
         """
         Build the training set from the provided data.
+        """
+        pass
+
+    @abstractmethod
+    def save(self, path: str):
+        """
+        Save the model to the specified path.
+
+        Args:
+            path (str): Path to save the model.
+        """
+        pass
+
+    @abstractmethod
+    def load(self, path: str):
+        """
+        Load the model from the specified path.
+
+        Args:
+            path (str): Path to load the model from.
         """
         pass
