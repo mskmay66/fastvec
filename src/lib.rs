@@ -14,8 +14,7 @@ use build::TrainingSet;
 use preprocessing::simple_preprocessing;
 use word2vec::{W2V, binary_entropy_loss};
 // use doc2vec::DocumentLayer;
-use rayon::prelude::*;
-use ndarray::{Array2, s};
+use ndarray::{Array2};
 
 
 #[pyfunction]
@@ -35,7 +34,7 @@ fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, epoc
             let loss = binary_entropy_loss(label_array, out.clone());
 
             // Backward pass
-            w2v.backward(loss, input_array, target_array, out.clone(), input_output, target_output);
+            let _ = w2v.backward(loss, input_array, target_array, out.clone(), input_output, target_output);
 
             if epoch == epochs - 1 {
                 embeddings.add_vectors(

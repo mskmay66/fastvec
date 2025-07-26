@@ -1,5 +1,4 @@
 use pyo3::prelude::*;
-use rayon::prelude::*;
 use crate::vocab::Vocab;
 use random_word::Lang;
 use itertools::Itertools;
@@ -104,11 +103,20 @@ impl Iterator for TrainingSet {
     }
 }
 
-impl<'a> Iterator for &'a TrainingSet {
-    type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next()
+impl<'a> IntoIterator for &'a TrainingSet {
+    type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
+    type IntoIter = TrainingSet;
+
+    fn into_iter(self) -> Self::IntoIter {
+        TrainingSet {
+            input_words: self.input_words.clone(),
+            context_words: self.context_words.clone(),
+            labels: self.labels.clone(),
+            batch_size: self.batch_size,
+            curr: 0,
+            next: 0,
+        }
     }
 }
 
@@ -154,7 +162,7 @@ impl Builder {
         let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size);
         self.documents.iter().for_each(|doc| {
             let encoded_doc = self.vocab.get_ids(doc.clone()).unwrap();
-            training_set.extend(self.build_example(encoded_doc, context_window).expect("Failed to build example"));
+            let _ = training_set.extend(self.build_example(encoded_doc, context_window).expect("Failed to build example"));
         });
         Ok(training_set)
     }
