@@ -45,6 +45,8 @@ wheels = [
 name = "fastvec"
 source = { editable = "." }
 dependencies = [
+    { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "tqdm" },
 ]
 
@@ -61,7 +63,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "tqdm", specifier = ">=4.67.1" }]
+requires-dist = [
+    { name = "numpy", specifier = ">=1.24.4" },
+    { name = "tqdm", specifier = ">=4.67.1" },
+]
 
 [package.metadata.requires-dev]
 benchmark = [

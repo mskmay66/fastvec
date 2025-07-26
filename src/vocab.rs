@@ -86,7 +86,7 @@ impl Vocab {
         let avoid_ids = avoid.unwrap_or(Vec::new());
         let id = loop {
             let random_index = rng.random_range(0..(self.size));
-            if !&avoid_ids.contains(&random_index) {
+            if !&avoid_ids.contains(&random_index) && self.valid_ids.contains(&random_index) {
                 break random_index;
             }
         };

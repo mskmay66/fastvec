@@ -159,21 +159,22 @@ mod tests {
 
     #[test]
     fn test_builder_creation() {
-        let documents = vec![vec!["word1".to_string(), "word2".to_string()], vec!["word3".to_string()]];
+        let documents = generate_random_documents(25, 10);
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
         let builder = Builder::new(documents, vocab, Some(5));
-        assert_eq!(builder.documents.len(), 2);
-        assert_eq!(builder.vocab.size, 3);
+        assert_eq!(builder.documents.len(), 25);
+        assert!(builder.vocab.size > 0);
+        assert!(builder.vocab.size <= 250);
         assert_eq!(builder.window, Some(5));
     }
 
     #[test]
     fn test_build_example() {
-        let documents = vec![vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]];
+        let documents = generate_random_documents(25, 10);
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
         let builder = Builder::new(documents, vocab, Some(3));
 
-        let encoded_doc: Vec<usize> = builder.vocab.get_ids(vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]).unwrap();
+        let encoded_doc: Vec<usize> = (0..10).map(|_| {builder.vocab.get_random_id(None).unwrap()}).collect();
         let training_set = builder.build_example(encoded_doc.clone(), 3).unwrap();
 
         assert!(training_set.input_words.len() > 0);
@@ -204,9 +205,8 @@ mod tests {
 
     #[test]
     fn test_negative_sample() {
-        let mut vocab = Vocab::from_words(vec!["word1".to_string(), "word2".to_string(), "word3".to_string(), "word4".to_string(), "word5".to_string()]);
-        vocab.size = 5; // Assuming we have 5 words in the vocabulary
-        vocab.valid_ids = vec![0, 1, 2, 3, 4]; // Assuming word1=0, word2=1, word3=2
+        let documents = generate_random_documents(25, 10);
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
         let samples = negative_sample(vec![0, 1], 0, &vocab, 2);
         assert_eq!(samples.len(), 2);
         for (input, sample, label) in samples {
