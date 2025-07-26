@@ -4,10 +4,11 @@ use crate::vocab::Vocab;
 use random_word::Lang;
 use itertools::Itertools;
 
-fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
+fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
     let mut samples = Vec::new();
+    let w = Some(window);
     for _ in 0..num_samples {
-        let random_index = vocabulary.get_random_id(Some(input)).unwrap();
+        let random_index = vocabulary.get_random_id(w.clone()).unwrap();
         samples.push((input, random_index, 0)); // Negative sample
     }
     samples
@@ -121,7 +122,7 @@ impl Builder {
                     continue; // Skip if the word is the same as the context word
                 }
                 training_set.add_example(word.clone(), context_word.clone(), 1);
-                negative_sample(word.clone(), &self.vocab, 5).into_iter().for_each(|(input, sample, label)| {
+                negative_sample(w.to_vec(), word.clone(), &self.vocab, 5).into_iter().for_each(|(input, sample, label)| {
                     training_set.add_example(input, sample, label);
                 });
             }
@@ -206,7 +207,7 @@ mod tests {
         let mut vocab = Vocab::from_words(vec!["word1".to_string(), "word2".to_string(), "word3".to_string(), "word4".to_string(), "word5".to_string()]);
         vocab.size = 5; // Assuming we have 5 words in the vocabulary
         vocab.valid_ids = vec![0, 1, 2, 3, 4]; // Assuming word1=0, word2=1, word3=2
-        let samples = negative_sample(0, &vocab, 2);
+        let samples = negative_sample(vec![0, 1], 0, &vocab, 2);
         assert_eq!(samples.len(), 2);
         for (input, sample, label) in samples {
             assert_eq!(input, 0);

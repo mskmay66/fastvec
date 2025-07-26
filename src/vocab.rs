@@ -81,15 +81,12 @@ impl Vocab {
         }
     }
 
-    pub fn get_random_id(&self, avoid: Option<usize>) -> PyResult<usize> {
+    pub fn get_random_id(&self, avoid: Option<Vec<usize>>) -> PyResult<usize> {
         let mut rng = rand::rng();
+        let avoid_ids = avoid.unwrap_or(Vec::new());
         let id = loop {
             let random_index = rng.random_range(0..(self.size));
-            if let Some(avoid_id) = avoid {
-                if random_index != avoid_id {
-                    break random_index;
-                }
-            } else {
+            if !&avoid_ids.contains(&random_index) {
                 break random_index;
             }
         };
@@ -173,7 +170,7 @@ mod tests {
         let id = vocab.get_random_id(None).unwrap();
         assert!(id < vocab.size); // Should return a valid ID
 
-        let id2 = vocab.get_random_id(Some(id)).unwrap();
+        let id2 = vocab.get_random_id(Some(vec![id])).unwrap();
         assert!(id2 < vocab.size && id2 != id); // Should return a different valid ID
     }
 
