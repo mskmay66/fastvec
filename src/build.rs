@@ -13,11 +13,85 @@ fn negative_sample(input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<
     samples
 }
 
+
 #[pyclass]
-pub enum Example {
-    W2V(usize, usize, u8),
-    D2V(usize, usize, usize, u8),
+#[derive(Clone)]
+pub struct TrainingSet {
+    #[pyo3(get)]
+    pub input_words: Vec<usize>,
+    #[pyo3(get)]
+    pub context_words: Vec<usize>,
+    #[pyo3(get)]
+    pub labels: Vec<u8>,
+    #[pyo3(get)]
+    pub batch_size: usize,
+    curr: usize,
+    next: usize,
 }
+
+#[pymethods]
+impl TrainingSet {
+    #[new]
+    pub fn new(input_words: Vec<usize>, context_words: Vec<usize>, labels: Vec<u8>, batch_size: Option<usize>) -> Self {
+        let curr = 0;
+        let next = 0;
+        TrainingSet {
+            input_words,
+            context_words,
+            labels,
+            batch_size: batch_size.unwrap_or(32), // Default batch size
+            curr,
+            next
+        }
+    }
+
+    pub fn add_example(&mut self, input: usize, context: usize, label: u8) {
+        self.input_words.push(input);
+        self.context_words.push(context);
+        self.labels.push(label);
+    }
+
+    pub fn extend(&mut self, other: TrainingSet) -> PyResult<()> {
+        self.input_words.extend(other.input_words);
+        self.context_words.extend(other.context_words);
+        self.labels.extend(other.labels);
+        Ok(())
+    }
+
+    pub fn get_batch(&self, start: usize, end: usize) -> PyResult<(Vec<usize>, Vec<usize>, Vec<u8>)> {
+        if start >= self.input_words.len() || end > self.input_words.len() || start >= end {
+            return Err(pyo3::exceptions::PyIndexError::new_err("Invalid range for batch"));
+        }
+        let input_batch = self.input_words[start..end].to_vec();
+        let context_batch = self.context_words[start..end].to_vec();
+        let labels_batch = self.labels[start..end].to_vec();
+        Ok((input_batch, context_batch, labels_batch))
+    }
+
+    pub fn __len__(&self) -> usize {
+        self.input_words.len()
+    }
+}
+
+impl Iterator for TrainingSet {
+    type Item = (Vec<usize>, Vec<usize>, Vec<u8>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.curr >= self.input_words.len() {
+            return None;
+        }
+        if self.curr + self.batch_size > self.input_words.len() {
+            self.next = self.input_words.len();
+        } else {
+            self.next = self.curr + self.batch_size;
+        }
+
+        let (input, context, labels) = self.get_batch(self.curr, self.next).unwrap();
+        self.curr = self.next;
+        Some((input, context, labels))
+    }
+}
+
 
 #[pyclass]
 pub struct Builder {
@@ -38,43 +112,31 @@ impl Builder {
         }
     }
 
-    pub fn build_example(&self, encoded_doc: Vec<usize>, context_window: usize, doc_index: Option<usize>) ->  Vec<Example> {
-        let mut examples = Vec::new();
+    fn build_example(&self, encoded_doc: Vec<usize>, context_window: usize) -> PyResult<TrainingSet> {
+        let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None);
         for w in encoded_doc.windows(context_window) {
             for permutation in w.iter().cartesian_product(w.iter()) {
                 let (word, context_word) = (permutation.0, permutation.1);
                 if word == context_word {
                     continue; // Skip if the word is the same as the context word
                 }
-
-                if let Some(doc_index) = doc_index {
-                    examples.push(Example::D2V(doc_index, word.clone(), context_word.clone(), 1));
-                    examples.extend(negative_sample(word.clone(), &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::D2V(doc_index, input, sample, label)));
-                } else {
-                    examples.push(Example::W2V(word.clone(), context_word.clone(), 1));
-                    examples.extend(negative_sample(word.clone(), &self.vocab, 5).into_iter().map(|(input, sample, label)| Example::W2V(input, sample, label)));
-                }
+                training_set.add_example(word.clone(), context_word.clone(), 1);
+                negative_sample(word.clone(), &self.vocab, 5).into_iter().for_each(|(input, sample, label)| {
+                    training_set.add_example(input, sample, label);
+                });
             }
         }
-        examples
+        Ok(training_set)
     }
 
-    pub fn build_w2v_training(&self) -> PyResult<Vec<Example>> {
+    pub fn build_training(&self, batch_size: Option<usize>) -> PyResult<TrainingSet> {
         let context_window: usize = self.window.unwrap_or(5);
-        let examples = self.documents.par_iter().map(|doc| {
-            let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.clone()).unwrap_or_else(|_| vec![]);
-            self.build_example(encoded_doc, context_window, None)
-        }).flatten().collect::<Vec<_>>();
-        Ok(examples)
-    }
-
-    pub fn build_d2v_training(&self) -> PyResult<Vec<Example>> {
-        let context_window: usize = self.window.unwrap_or(5);
-        let examples = self.documents.par_iter().enumerate().map(|(i, doc)| {
-            let encoded_doc: Vec<usize> = self.vocab.get_ids(doc.clone()).unwrap_or_else(|_| vec![]);
-            self.build_example(encoded_doc, context_window, Some(i))
-        }).flatten().collect::<Vec<_>>();
-        Ok(examples)
+        let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size);
+        self.documents.iter().for_each(|doc| {
+            let encoded_doc = self.vocab.get_ids(doc.clone()).unwrap();
+            training_set.extend(self.build_example(encoded_doc, context_window).expect("Failed to build example"));
+        });
+        Ok(training_set)
     }
 }
 
@@ -111,14 +173,11 @@ mod tests {
         let builder = Builder::new(documents, vocab, Some(3));
 
         let encoded_doc: Vec<usize> = builder.vocab.get_ids(vec!["word1".to_string(), "word2".to_string(), "word3".to_string()]).unwrap();
-        let examples = builder.build_example(encoded_doc.clone(), 3, None);
+        let training_set = builder.build_example(encoded_doc.clone(), 3).unwrap();
 
-        assert!(!examples.is_empty());
-        assert!(examples.iter().all(|e| matches!(e, Example::W2V(_, _, _))));
-
-        let d2v_examples = builder.build_example(encoded_doc, 3, Some(0));
-        assert!(!d2v_examples.is_empty());
-        assert!(d2v_examples.iter().all(|e| matches!(e, Example::D2V(_, _, _, _))));
+        assert!(training_set.input_words.len() > 0);
+        assert!(training_set.context_words.len() > 0);
+        assert!(training_set.labels.len() > 0);
     }
 
     #[test]
@@ -132,24 +191,14 @@ mod tests {
 
         let builder = Builder::new(documents, vocab, Some(3));
 
-        let examples = builder.build_w2v_training().unwrap();
-        assert!(!examples.is_empty());
-        assert!(examples.iter().all(|e| matches!(e, Example::W2V(_, _, _))));
-    }
+        let training_set = builder.build_training(Some(32)).unwrap();
+        assert!(training_set.input_words.len() > 0);
+        assert!(training_set.context_words.len() > 0);
+        assert!(training_set.labels.len() > 0);
 
-    #[test]
-    fn test_build_d2v_training() {
-        let documents = generate_random_documents(25, 10);
-        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
-        assert!(!vocab.word_to_id.is_empty());
-        assert!(!vocab.words.is_empty());
-        assert!(vocab.size > 0);
-        assert!(!vocab.valid_ids.is_empty());
-        let builder = Builder::new(documents, vocab, Some(3));
-
-        let examples = builder.build_d2v_training().unwrap();
-        assert!(!examples.is_empty());
-        assert!(examples.iter().all(|e| matches!(e, Example::D2V(_, _, _, _))));
+        // Check that the training set can be iterated over
+        let mut iter = training_set.into_iter();
+        assert!(iter.next().is_some());
     }
 
     #[test]

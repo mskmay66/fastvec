@@ -1,6 +1,6 @@
 from typing import List
 
-from fastvec import Vocab
+from fastvec import Vocab, Builder, _Word2Vec
 from .model import FastvecModel
 
 
@@ -12,6 +12,7 @@ class Word2Vec(FastvecModel):
 
         self.vocab = None
         self.embeddings = None
+        self.encoder = _Word2Vec(embedding_dim, 0.01)
 
     def build_vocab(self, corpus: List[str]) -> None:
         """Build vocabulary from the corpus.
@@ -20,6 +21,25 @@ class Word2Vec(FastvecModel):
             corpus (List[str]): List of words.
         """
         self.vocab = Vocab.from_words(corpus)
+
+    def build_training_set(self, documents: List[List[str]], window_size: int = 5):
+        """
+        Build the training set from the provided data.
+        """
+        builder = Builder(documents, self.vocab, window_size)
+        return builder.build_w2v_training()
+
+    def train(self, tokens: List[str], window_size: int = 5) -> None:
+        """
+        Train the Word2Vec model on the given corpus.
+
+        Args:
+            tokens (List[str]): List of words.
+            window_size (int): Size of the context window.
+        """
+        self.build_vocab(tokens)
+        examples = self.build_training_set(tokens, window_size)
+        self.embeddings = self._train(examples)
 
     # def forward(
     #     self, input_words: torch.Tensor, target_words: torch.Tensor
