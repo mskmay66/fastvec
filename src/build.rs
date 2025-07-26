@@ -4,12 +4,12 @@ use crate::vocab::Vocab;
 use random_word::Lang;
 use itertools::Itertools;
 
-fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u8)> {
+fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u32)> {
     let mut samples = Vec::new();
     let w = Some(window);
     for _ in 0..num_samples {
         let random_index = vocabulary.get_random_id(w.clone()).unwrap();
-        samples.push((input, random_index, 0)); // Negative sample
+        samples.push((input, random_index, 0 as u32)); // Negative sample
     }
     samples
 }
@@ -19,11 +19,11 @@ fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_sam
 #[derive(Clone)]
 pub struct TrainingSet {
     #[pyo3(get)]
-    pub input_words: Vec<usize>,
+    pub input_words: Vec<f32>,
     #[pyo3(get)]
-    pub context_words: Vec<usize>,
+    pub context_words: Vec<f32>,
     #[pyo3(get)]
-    pub labels: Vec<u8>,
+    pub labels: Vec<u32>,
     #[pyo3(get)]
     pub batch_size: usize,
     curr: usize,
@@ -33,12 +33,12 @@ pub struct TrainingSet {
 #[pymethods]
 impl TrainingSet {
     #[new]
-    pub fn new(input_words: Vec<usize>, context_words: Vec<usize>, labels: Vec<u8>, batch_size: Option<usize>) -> Self {
+    pub fn new(input_words: Vec<usize>, context_words: Vec<usize>, labels: Vec<u32>, batch_size: Option<usize>) -> Self {
         let curr = 0;
         let next = 0;
         TrainingSet {
-            input_words,
-            context_words,
+            input_words: input_words.iter().map(|&x| x as f32).collect(),
+            context_words: context_words.iter().map(|&x| x as f32).collect(),
             labels,
             batch_size: batch_size.unwrap_or(32), // Default batch size
             curr,
@@ -46,9 +46,9 @@ impl TrainingSet {
         }
     }
 
-    pub fn add_example(&mut self, input: usize, context: usize, label: u8) {
-        self.input_words.push(input);
-        self.context_words.push(context);
+    pub fn add_example(&mut self, input: usize, context: usize, label: u32) {
+        self.input_words.push(input as f32);
+        self.context_words.push(context as f32);
         self.labels.push(label);
     }
 
@@ -59,7 +59,7 @@ impl TrainingSet {
         Ok(())
     }
 
-    pub fn get_batch(&self, start: usize, end: usize) -> PyResult<(Vec<usize>, Vec<usize>, Vec<u8>)> {
+    pub fn get_batch(&self, start: usize, end: usize) -> PyResult<(Vec<f32>, Vec<f32>, Vec<u32>)> {
         if start >= self.input_words.len() || end > self.input_words.len() || start >= end {
             return Err(pyo3::exceptions::PyIndexError::new_err("Invalid range for batch"));
         }
@@ -72,10 +72,21 @@ impl TrainingSet {
     pub fn __len__(&self) -> usize {
         self.input_words.len()
     }
+
+    pub fn get_item(&self, idx: usize) -> PyResult<(f32, f32, u32)> {
+        if idx >= self.input_words.len() {
+            return Err(pyo3::exceptions::PyIndexError::new_err("Index out of range"));
+        }
+        Ok((
+            self.input_words[idx],
+            self.context_words[idx],
+            self.labels[idx],
+        ))
+    }
 }
 
 impl Iterator for TrainingSet {
-    type Item = (Vec<usize>, Vec<usize>, Vec<u8>);
+    type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.curr >= self.input_words.len() {
@@ -90,6 +101,14 @@ impl Iterator for TrainingSet {
         let (input, context, labels) = self.get_batch(self.curr, self.next).unwrap();
         self.curr = self.next;
         Some((input, context, labels))
+    }
+}
+
+impl<'a> Iterator for &'a TrainingSet {
+    type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next()
     }
 }
 
