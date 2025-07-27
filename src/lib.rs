@@ -13,12 +13,12 @@ use build::Builder;
 use build::TrainingSet;
 use preprocessing::simple_preprocessing;
 use word2vec::{W2V, binary_entropy_loss};
-// use doc2vec::DocumentLayer;
+use doc2vec::DocumentLayer;
 use ndarray::{Array2};
 
 
 #[pyfunction]
-fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, epochs: usize) -> PyResult<Embedding> {
+pub fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, epochs: usize) -> PyResult<Embedding> {
     let mut w2v = W2V::new(embedding_dim, lr);
     let mut embeddings = Embedding::new(embedding_dim);
     for epoch in 0..epochs {
@@ -48,6 +48,23 @@ fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, epoc
 }
 
 
+#[pyfunction]
+pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32) -> PyResult<Vec<Vec<f32>>> {
+    let num_samples = word_embeddings.len();
+    let dim = word_embeddings[0].len();
+    let doc_layer = DocumentLayer::new(dim, lr);
+    let mut doc_vectors = Array2::random((num_samples, dim), Uniform::new(-1, 1));
+    let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings).unwrap();
+    for _ in 0..epochs {
+        let (output, doc_vec) = doc_layer.forward(word_vectors.view(), doc_vectors.view());
+        doc_vectors = doc_vec;
+        let mut loss = binary_entropy_loss(Array2::ones((num_samples, 1)), output.clone());
+        doc_layer.backward(loss, doc_vectors.view(), word_vectors.view());
+    }
+    Ok(doc_vectors.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
+}
+
+
 #[pymodule]
 fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Vocab>()?;
@@ -57,7 +74,6 @@ fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<preprocessing::Tokens>()?;
     m.add_function(wrap_pyfunction!(simple_preprocessing, m)?)?;
     m.add_function(wrap_pyfunction!(train_word2vec, m)?)?;
-    // m.add_class::<_Word2Vec>()?;
-    // m.add_class::<DocumentLayer>()?;
+    m.add_function(wrap_pyfunction!(infer_doc_vectors, m)?)?;
     Ok(())
 }
