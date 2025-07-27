@@ -15,6 +15,8 @@ use preprocessing::simple_preprocessing;
 use word2vec::{W2V, binary_entropy_loss};
 use doc2vec::DocumentLayer;
 use ndarray::{Array2};
+use ndarray_rand::rand_distr::Uniform;
+use ndarray_rand::RandomExt;
 
 
 #[pyfunction]
@@ -52,14 +54,13 @@ pub fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, 
 pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32) -> PyResult<Vec<Vec<f32>>> {
     let num_samples = word_embeddings.len();
     let dim = word_embeddings[0].len();
-    let doc_layer = DocumentLayer::new(dim, lr);
-    let mut doc_vectors = Array2::random((num_samples, dim), Uniform::new(-1, 1));
-    let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings).unwrap();
+    let mut doc_layer = DocumentLayer::new(dim, lr);
+    let mut doc_vectors: Array2<f32> = Array2::random((num_samples, dim), Uniform::new(-1.0, 1.0));
+    let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings.into_iter().flatten().collect()).unwrap();
     for _ in 0..epochs {
         let (output, doc_vec) = doc_layer.forward(word_vectors.view(), doc_vectors.view());
         doc_vectors = doc_vec;
-        let mut loss = binary_entropy_loss(Array2::ones((num_samples, 1)), output.clone());
-        doc_layer.backward(loss, doc_vectors.view(), word_vectors.view());
+        doc_layer.backward(output.clone(), &doc_vectors, &word_vectors);
     }
     Ok(doc_vectors.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
 }

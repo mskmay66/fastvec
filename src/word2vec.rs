@@ -8,7 +8,7 @@ pub fn binary_entropy_loss(target: Array2<u32>, pred: Array2<f32>)-> Array2<f32>
     (pred.clone() - t.clone()) / (pred * (1.0 - t.clone()))
 }
 
-fn sigmoid(output: Array2<f32>) -> Array2<f32> {
+pub fn sigmoid(output: Array2<f32>) -> Array2<f32> {
     let base: f32 = std::f32::consts::E;
     output.mapv(|x| 1.0 / (1.0 + base.powf(-x)))
 }
@@ -24,13 +24,13 @@ pub struct Layer {
 }
 
 impl Layer {
-    fn new(embedding_dim: usize) -> Self {
+    pub fn new(embedding_dim: usize) -> Self {
         let weights = xavier_uniform((1, embedding_dim));
         let biases = xavier_uniform((1, embedding_dim));
         Layer { weights, biases }
     }
 
-    fn forward(&self, input: ArrayView2<f32>) -> Array2<f32> {
+    pub fn forward(&self, input: ArrayView2<f32>) -> Array2<f32> {
         input.dot(&self.weights) + &self.biases
     }
 }
