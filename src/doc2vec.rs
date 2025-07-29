@@ -1,4 +1,4 @@
-use crate::word2vec::{Layer, sigmoid, binary_entropy_loss, GradVars};
+use crate::word2vec::{Layer, sigmoid, GradVars, binary_entropy_loss};
 use ndarray::{ Array1, Array2, ArrayView2, Axis };
 use std::collections::HashMap;
 
@@ -47,7 +47,6 @@ impl DocumentLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::word2vec::binary_entropy_loss;
 
     #[test]
     fn test_doc_layer_creation() {
@@ -76,7 +75,7 @@ mod tests {
         let mut doc_layer = DocumentLayer::new(3, 0.01);
         let word_embedding = Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
         let input = Array2::from_shape_vec((2, 1), vec![1.0, 1.0]).unwrap();
-        let doc_vec = doc_layer.forward(input.view(), word_embedding.view());
+        let _doc_vec = doc_layer.forward(input.view(), word_embedding.view());
         let y_true = Array1::from_vec(vec![1, 0]);
         doc_layer.backward(y_true).expect("Backward pass failed");
 

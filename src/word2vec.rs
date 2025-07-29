@@ -105,22 +105,25 @@ impl W2V {
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        // loss is the binary cross-entropy loss
-        // input is the word vector for the input word
-        // target is the context word vector
-        // output is the sigmoid output of the dot product of input and target
-        // y0 is the input word embedding
-        // y1 is the target word embedding
         let loss: f32 = binary_entropy_loss(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
         let sig_grad = self.grad_vars["sigmoid_output"].unwrap_arr1().mapv(|x| x * (1.0 - x)); // sigmoid gradient
-        let input_bias_grad = (loss * sig_grad.clone()).insert_axis(Axis(1)).dot(&self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)).t()); // gradient w.r.t. input word embedding
-        let target_bias_grad = (loss * sig_grad).insert_axis(Axis(1)).dot(&self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)).t()); // gradient w.r.t. target word embedding
-        let input_grad = input_bias_grad.dot(&self.grad_vars["input"].unwrap_arr2().t()); // gradient w.r.t. input layer weights
-        let target_grad = target_bias_grad.dot(&self.grad_vars["context"].unwrap_arr2().t()); // gradient w.r.t. target layer weights
+        let context_sum = self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all context embeddings
+        let input_sum = self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all input embeddings
+
+        let input_before_weights = (loss * sig_grad.clone()).insert_axis(Axis(1)).dot(&context_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
+        let target_before_weights = (loss * sig_grad).insert_axis(Axis(1)).dot(&input_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. target word embedding
+        let input = self.grad_vars["input"].unwrap_arr2();
+        let context = self.grad_vars["context"].unwrap_arr2();
+
+        let it = input.t();
+        let ct = context.t();
+
+        let input_grad = it.dot(&input_before_weights); // gradient w.r.t. input layer weights
+        let target_grad = ct.dot(&target_before_weights); // gradient w.r.t. target layer weights
 
         // update weights and biases
-        self.input_layer.biases -= &(input_bias_grad * self.lr);
-        self.context_layer.biases -= &(target_bias_grad * self.lr);
+        self.input_layer.biases -= &(context_sum * self.lr);
+        self.context_layer.biases -= &(input_sum * self.lr);
         self.input_layer.weights -= &(input_grad * self.lr);
         self.context_layer.weights -= &(target_grad * self.lr);
         Ok(())
@@ -185,4 +188,24 @@ mod tests {
     }
 
     // TODO: Write tests for W2V backward pass
+    #[test]
+    fn test_w2v_backward() {
+        let mut w2v = W2V::new(5, 0.01);
+        let input = Array2::from_shape_vec((6, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+        let target = Array2::from_shape_vec((6, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0, 1.0]).unwrap();
+        let _ = w2v.forward(input.view(), target.view()).unwrap();
+        let y_true = Array1::from_vec(vec![1, 0, 1, 0, 1, 1]);
+        let result = w2v.backward(y_true);
+        assert!(result.is_ok());
+        assert_eq!(w2v.input_layer.biases.shape(), &[1, 5]);
+        assert_eq!(w2v.context_layer.biases.shape(), &[1, 5]);
+        assert_eq!(w2v.input_layer.weights.shape(), &[1, 5]);
+        assert_eq!(w2v.context_layer.weights.shape(), &[1, 5]);
+        assert!(w2v.grad_vars.contains_key("input"));
+        assert!(w2v.grad_vars.contains_key("context"));
+        assert!(w2v.grad_vars.contains_key("input_embedding"));
+        assert!(w2v.grad_vars.contains_key("context_embedding"));
+        assert!(w2v.grad_vars.contains_key("consine_sim"));
+        assert!(w2v.grad_vars.contains_key("sigmoid_output"));
+    }
 }

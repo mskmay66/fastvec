@@ -56,8 +56,8 @@ pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32)
     let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings.into_iter().flatten().collect()).unwrap();
 
     for _ in 0..epochs {
-        let output = doc_layer.forward(word_vectors.view(), doc_vectors.view());
-        doc_layer.backward(Array1::ones(num_samples));
+        let doc_vectors = doc_layer.forward(word_vectors.view(), doc_vectors.view()); // TODO: shadow wont work in scope
+        let _ = doc_layer.backward(Array1::ones(num_samples));
     }
 
     Ok(doc_vectors.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
