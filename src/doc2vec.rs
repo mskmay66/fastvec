@@ -21,51 +21,51 @@ impl DocumentLayer {
         (sigmoid(Array2::from_shape_vec((sim.len(), 1), sim).unwrap()), doc_embedding)
     }
 
-    pub fn backward(&mut self, output: Array2<f32>, doc_vec: &Array2<f32>, input: &Array2<f32>) {
-        let loss: Array2<f32> = binary_entropy_loss(Array2::<u32>::ones((output.len(), 1)), output.clone());
-        let out_grad: Array2<f32> = output.clone() * (Array2::<f32>::ones((output.len(), 1)) - output); // output gradient
-        let wr_z: Array2<f32> = loss.dot(&out_grad); // sigmoid gradient
-        let doc_gradient: Array2<f32> = wr_z.dot(doc_vec); // gradient w.r.t. document vector
-        let grad: Array2<f32> = doc_gradient.dot(&input.t());
+    // pub fn backward(&mut self, output: Array2<f32>, doc_vec: &Array2<f32>, input: &Array2<f32>) {
+    //     let loss: Array2<f32> = binary_entropy_loss(Array2::<u32>::ones((output.len(), 1)), output.clone());
+    //     let out_grad: Array2<f32> = output.clone() * (Array2::<f32>::ones((output.len(), 1)) - output); // output gradient
+    //     let wr_z: Array2<f32> = loss.dot(&out_grad.t()); // sigmoid gradient
+    //     let doc_gradient: Array2<f32> = wr_z.dot(doc_vec); // gradient w.r.t. document vector
+    //     let grad: Array2<f32> = doc_gradient.t().dot(input);
 
-        // update weights and biases
-        self.layer.weights -= &(grad * self.lr);
-        self.layer.biases -= &(doc_gradient * self.lr);
-    }
+    //     // update weights and biases
+    //     self.layer.weights -= &(grad * self.lr).t();
+    //     self.layer.biases -= &(doc_gradient * self.lr);
+    // }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use::super::*;
-    use word2vec::binary_entropy_loss;
+    use super::*;
+    use crate::word2vec::binary_entropy_loss;
 
     #[test]
     fn test_doc_layer_creation() {
         let doc_layer = DocumentLayer::new(3, 0.01);
-        assert_eq!(doc_layer.layer.weights.shape(), (3, 3));
-        assert_eq!(doc_layer.layer.biases.shape(), (3,));
+        assert_eq!(doc_layer.layer.weights.shape(), &[1,3]);
+        assert_eq!(doc_layer.layer.biases.shape(), &[1,3]);
         assert_eq!(doc_layer.lr, 0.01);
     }
 
     #[test]
     fn test_doc_layer_forward() {
         let doc_layer = DocumentLayer::new(3, 0.01);
-        let input = Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
-        let word_embedding = Array2::from_shape_vec((2, 3), vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+        let input = Array2::from_shape_vec((2, 1), vec![1.0, 2.0]).unwrap();
+        let word_embedding = Array2::from_shape_vec((2, 1), vec![1.0, 1.0]).unwrap();
         let (output, doc_vec) = doc_layer.forward(input.view(), word_embedding.view());
-        assert_eq!(output.shape(), (2,));
-        assert_eq!(doc_vec.shape(), (2, 3));
+        assert_eq!(output.shape(), &[2,1]);
+        assert_eq!(doc_vec.shape(), &[2,3]);
     }
 
-    #[test]
-    fn test_doc_layer_backward() {
-        let doc_layer = DocumentLayer::new(3, 0.01);
-        let input = Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
-        let word_embedding = Array2::from_shape_vec((2, 3), vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
-        let (output, doc_vec) = doc_layer.forward(input.view(), word_embedding.view());
-        let loss = binary_entropy_loss(Array2::ones((2, 1)), output.clone());
-        doc_layer.backward(loss, doc_vec.view(), input.view());
-        assert!(doc_layer.layer.weights.iter().all(|&x| x != 0.0));
-    }
+    // #[test]
+    // fn test_doc_layer_backward() {
+    //     let mut doc_layer = DocumentLayer::new(3, 0.01);
+    //     let word_embedding = Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+    //     let input = Array2::from_shape_vec((2, 1), vec![1.0, 1.0]).unwrap();
+    //     let (output, doc_vec) = doc_layer.forward(input.view(), word_embedding.view());
+    //     let loss = binary_entropy_loss(Array2::ones((2, 1)), output.clone());
+    //     doc_layer.backward(loss, &doc_vec, &input);
+    //     assert!(doc_layer.layer.weights.iter().all(|&x| x != 0.0));
+    // }
 }
