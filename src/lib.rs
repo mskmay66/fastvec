@@ -12,7 +12,7 @@ use embedding::Embedding;
 use build::Builder;
 use build::TrainingSet;
 use preprocessing::simple_preprocessing;
-use word2vec::{W2V, binary_entropy_loss};
+use word2vec::{W2V};
 use doc2vec::DocumentLayer;
 use ndarray::{Array1, Array2};
 use ndarray_rand::rand_distr::Uniform;
@@ -47,20 +47,21 @@ pub fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, 
 }
 
 
-// #[pyfunction]
-// pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32) -> PyResult<Vec<Vec<f32>>> {
-//     let num_samples = word_embeddings.len();
-//     let dim = word_embeddings[0].len();
-//     let mut doc_layer = DocumentLayer::new(dim, lr);
-//     let mut doc_vectors: Array2<f32> = Array2::random((num_samples, dim), Uniform::new(-1.0, 1.0));
-//     let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings.into_iter().flatten().collect()).unwrap();
-//     for _ in 0..epochs {
-//         let (output, doc_vec) = doc_layer.forward(word_vectors.view(), doc_vectors.view());
-//         doc_vectors = doc_vec;
-//         doc_layer.backward(output.clone(), &doc_vectors, &word_vectors);
-//     }
-//     Ok(doc_vectors.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
-// }
+#[pyfunction]
+pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32) -> PyResult<Vec<Vec<f32>>> {
+    let num_samples = word_embeddings.len();
+    let dim = word_embeddings[0].len();
+    let mut doc_layer = DocumentLayer::new(dim, lr);
+    let mut doc_vectors: Array2<f32> = Array2::random((num_samples, dim), Uniform::new(-1.0, 1.0));
+    let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings.into_iter().flatten().collect()).unwrap();
+
+    for _ in 0..epochs {
+        let output = doc_layer.forward(word_vectors.view(), doc_vectors.view());
+        doc_layer.backward(Array1::ones(num_samples));
+    }
+
+    Ok(doc_vectors.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
+}
 
 
 #[pymodule]

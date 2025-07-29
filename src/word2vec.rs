@@ -1,17 +1,12 @@
-use ndarray::{Array, Array1, Array2, ArrayView2, Axis};
+use ndarray::{Array1, Array2, ArrayView2, Axis};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 use std::collections::HashMap;
 
 
-// pub fn binary_entropy_loss(target: Array2<u32>, pred: Array2<f32>)-> Array2<f32> {
-//     let t = target.mapv(|x| x as f32);
-//     (pred.clone() - t.clone()) / (pred * (1.0 - t.clone()))
-// }
-
 pub fn binary_entropy_loss(target: Array1<u32>, pred: Array1<f32>) -> f32 {
     let t = target.mapv(|x| x as f32);
-    let loss = ((pred.clone() - t.clone()) / (pred * (1.0 - t.clone()))).mean_axis(Axis(1)).unwrap();
+    let loss = ((pred.clone() - t.clone()) / (pred * (1.0 - t.clone()))).mean_axis(Axis(0)).unwrap();
     loss.into_scalar()
 }
 
@@ -43,20 +38,20 @@ impl Layer {
 }
 
 
-enum GradVars{
+pub enum GradVars{
     Arr1(Array1<f32>),
     Arr2(Array2<f32>),
 }
 
 impl GradVars {
-    fn unwrap_arr1(&self) -> Array1<f32> {
+    pub fn unwrap_arr1(&self) -> Array1<f32> {
         match self {
             GradVars::Arr1(arr) => arr.clone(),
             _ => panic!("Expected Arr1, found Arr2"),
         }
     }
 
-    fn unwrap_arr2(&self) -> Array2<f32> {
+    pub fn unwrap_arr2(&self) -> Array2<f32> {
         match self {
             GradVars::Arr2(arr) => arr.clone(),
             _ => panic!("Expected Arr2, found Arr1"),
@@ -118,8 +113,8 @@ impl W2V {
         // y1 is the target word embedding
         let loss: f32 = binary_entropy_loss(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
         let sig_grad = self.grad_vars["sigmoid_output"].unwrap_arr1().mapv(|x| x * (1.0 - x)); // sigmoid gradient
-        let input_bias_grad = (loss * sig_grad.clone()).insert_axis(Axis(1)).dot(&self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(1))); // gradient w.r.t. input word embedding
-        let target_bias_grad = (loss * sig_grad).insert_axis(Axis(1)).dot(&self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(1))); // gradient w.r.t. target word embedding
+        let input_bias_grad = (loss * sig_grad.clone()).insert_axis(Axis(1)).dot(&self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)).t()); // gradient w.r.t. input word embedding
+        let target_bias_grad = (loss * sig_grad).insert_axis(Axis(1)).dot(&self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)).t()); // gradient w.r.t. target word embedding
         let input_grad = input_bias_grad.dot(&self.grad_vars["input"].unwrap_arr2().t()); // gradient w.r.t. input layer weights
         let target_grad = target_bias_grad.dot(&self.grad_vars["context"].unwrap_arr2().t()); // gradient w.r.t. target layer weights
 
@@ -137,59 +132,57 @@ impl W2V {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_binary_entropy_loss() {
-    //     let target = Array2::from_shape_vec((1, 3), vec![1, 0, 1]).unwrap();
-    //     let pred = Array2::from_shape_vec((1, 3), vec![0.9, 0.1, 0.8]).unwrap();
-    //     let loss = binary_entropy_loss2(target, pred);
-    //     assert_eq!(loss.shape(), &[1,]);
-    // }
+    #[test]
+    fn test_sigmoid() {
+        let input = Array1::from_vec(vec![0.0, 1.0, -1.0]);
+        let output = sigmoid(input);
+        assert!(output.iter().all(|&x| x >= 0.0 && x <= 1.0));
+    }
 
-    // #[test]
-    // fn test_sigmoid() {
-    //     let input = Array2::from_shape_vec((1, 3), vec![0.0, 1.0, -1.0]).unwrap();
-    //     let output = sigmoid(input);
-    //     assert_eq!(output.shape(), &[1, 3]);
-    //     assert!(output.iter().all(|&x| x >= 0.0 && x <= 1.0));
-    // }
+    #[test]
+    fn test_layer_creation() {
+        let layer = Layer::new(5);
+        assert_eq!(layer.weights.shape(), &[1, 5]);
+        assert_eq!(layer.biases.shape(), &[1, 5]);
+    }
 
-    // #[test]
-    // fn test_layer_creation() {
-    //     let layer = Layer::new(5);
-    //     assert_eq!(layer.weights.shape(), &[1, 5]);
-    //     assert_eq!(layer.biases.shape(), &[1, 5]);
-    // }
+    #[test]
+    fn test_layer_forward() {
+        let layer = Layer::new(3);
+        let input = Array2::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
+        let output = layer.forward(input.view());
+        assert_eq!(output.shape(), &[3, 3]);
 
-    // #[test]
-    // fn test_layer_forward() {
-    //     let layer = Layer::new(3);
-    //     let input = Array2::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
-    //     let output = layer.forward(input.view());
-    //     assert_eq!(output.shape(), &[3, 3]);
+        let layer2 = Layer::new(5);
+        let input2 = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let output2 = layer2.forward(input2.view());
+        assert_eq!(output2.shape(), &[5, 5]);
+    }
 
-    //     let layer2 = Layer::new(5);
-    //     let input2 = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
-    //     let output2 = layer2.forward(input2.view());
-    //     assert_eq!(output2.shape(), &[5, 5]);
-    // }
+    #[test]
+    fn test_w2v_creation() {
+        let w2v = W2V::new(10, 0.01);
+        assert_eq!(w2v.embedding_dim, 10);
+        assert_eq!(w2v.lr, 0.01);
+        assert_eq!(w2v.input_layer.weights.shape(), &[1, 10]);
+        assert_eq!(w2v.context_layer.weights.shape(), &[1, 10]);
+    }
 
-    // #[test]
-    // fn test_w2v_creation() {
-    //     let w2v = W2V::new(10, 0.01);
-    //     assert_eq!(w2v.embedding_dim, 10);
-    //     assert_eq!(w2v.lr, 0.01);
-    //     assert_eq!(w2v.input_layer.weights.shape(), &[1, 10]);
-    //     assert_eq!(w2v.target_layer.weights.shape(), &[1, 10]);
-    // }
+    #[test]
+    fn test_w2v_forward() {
+        let mut w2v = W2V::new(5, 0.01);
+        let input = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let target = Array2::from_shape_vec((5, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0]).unwrap();
+        let word_embedding = w2v.forward(input.view(), target.view()).unwrap();
+        assert_eq!(word_embedding.shape(), &[5, 5]);
 
-    // #[test]
-    // fn test_w2v_forward() {
-    //     let w2v = W2V::new(5, 0.01);
-    //     let input = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
-    //     let target = Array2::from_shape_vec((5, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0]).unwrap();
-    //     let (output, input_encoding, target_encoding) = w2v.forward(input.view(), target.view()).unwrap();
-    //     assert_eq!(output.shape(), &[5, 1]);
-    //     assert_eq!(input_encoding.shape(), &[5, 5]);
-    //     assert_eq!(target_encoding.shape(), &[5, 5]);
-    // }
+        assert_eq!(w2v.grad_vars.get("input").unwrap().unwrap_arr2().shape(), &[5, 1]);
+        assert_eq!(w2v.grad_vars.get("context").unwrap().unwrap_arr2().shape(), &[5, 1]);
+        assert_eq!(w2v.grad_vars.get("input_embedding").unwrap().unwrap_arr2().shape(), &[5, 5]);
+        assert_eq!(w2v.grad_vars.get("context_embedding").unwrap().unwrap_arr2().shape(), &[5, 5]);
+        assert_eq!(w2v.grad_vars.get("consine_sim").unwrap().unwrap_arr1().shape(), &[5]);
+        assert_eq!(w2v.grad_vars.get("sigmoid_output").unwrap().unwrap_arr1().shape(), &[5]);
+    }
+
+    // TODO: Write tests for W2V backward pass
 }
