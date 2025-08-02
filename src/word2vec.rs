@@ -4,13 +4,8 @@ use ndarray_rand::RandomExt;
 use std::collections::HashMap;
 
 
-pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> f32 {
-    let t = target.mapv(|x| x as f32);
-    let numerator = target.mapv(|x| (1 - x) as f32);
-    let denom: Array1<f32> = Array1::ones(pred.len()) - pred.clone();
-    ((numerator / denom) - (t / pred)).mean_axis(Axis(0))
-        .unwrap()
-        .into_scalar()
+pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> Array1<f32> {
+    pred - target.mapv(|x| x as f32)
 }
 
 
@@ -120,13 +115,13 @@ impl W2V {
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        let loss: f32 = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
+        let loss: Array2<f32> = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1()).insert_axis(Axis(1)); // gradient of binary cross-entropy loss
         let sig_grad = self.grad_vars["sigmoid_output"].unwrap_arr1().mapv(|x| x * (1.0 - x)); // sigmoid gradient
         let context_sum = self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all context embeddings
         let input_sum = self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all input embeddings
 
-        let input_before_weights = (loss * sig_grad.clone()).insert_axis(Axis(1)).dot(&context_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
-        let target_before_weights = (loss * sig_grad).insert_axis(Axis(1)).dot(&input_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. target word embedding
+        let input_before_weights = loss.dot(&context_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
+        let target_before_weights = loss.dot(&input_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. target word embedding
         let input = self.grad_vars["input"].unwrap_arr2();
         let context = self.grad_vars["context"].unwrap_arr2();
 
