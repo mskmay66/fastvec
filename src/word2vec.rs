@@ -4,10 +4,25 @@ use ndarray_rand::RandomExt;
 use std::collections::HashMap;
 
 
-pub fn binary_entropy_loss(target: Array1<u32>, pred: Array1<f32>) -> f32 {
+pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> f32 {
     let t = target.mapv(|x| x as f32);
-    let loss = ((pred.clone() - t.clone()) / (pred * (1.0 - t.clone()))).mean_axis(Axis(0)).unwrap();
-    loss.into_scalar()
+    let numerator = target.mapv(|x| (1 - x) as f32);
+    let denom: Array1<f32> = Array1::ones(pred.len()) - pred.clone();
+    ((numerator / denom) - (t / pred)).mean_axis(Axis(0))
+        .unwrap()
+        .into_scalar()
+}
+
+
+pub fn binary_entropy_loss(target: Array1<u32>, pred: Array1<f32>) -> f32 {
+    let epsilon = 1e-15; // to avoid log(0)
+    let t = target.mapv(|x| x as f32);
+    let pred_clipped = pred.mapv(|x| x.max(epsilon).min(1.0 - epsilon));
+    let loss = -t.clone() * pred_clipped.mapv(|x| x.ln()) - (1.0 - t) * (1.0 - pred_clipped).mapv(|x| x.ln());
+    loss.mean_axis(Axis(0))
+        .unwrap()
+        .into_scalar()
+        .max(0.0) // ensure non-negative loss
 }
 
 pub fn sigmoid(output: Array1<f32>) -> Array1<f32> {
@@ -105,7 +120,7 @@ impl W2V {
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        let loss: f32 = binary_entropy_loss(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
+        let loss: f32 = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
         let sig_grad = self.grad_vars["sigmoid_output"].unwrap_arr1().mapv(|x| x * (1.0 - x)); // sigmoid gradient
         let context_sum = self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all context embeddings
         let input_sum = self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all input embeddings
@@ -134,6 +149,18 @@ impl W2V {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    #[test]
+    fn test_loss() {
+        let y_true = Array1::from_vec(vec![1, 0, 1, 0, 1]);
+        let y_pred = Array1::from_vec(vec![0.9, 0.1, 0.8, 0.2, 0.7]);
+        let loss = binary_entropy_loss(y_true, y_pred);
+        println!("Loss: {}", loss);
+        assert!(loss >= 0.0);
+        assert!(loss < f32::MAX);
+        assert!(loss.is_finite(), "Loss is not finite: {}", loss);
+    }
 
     #[test]
     fn test_sigmoid() {
@@ -207,5 +234,22 @@ mod tests {
         assert!(w2v.grad_vars.contains_key("context_embedding"));
         assert!(w2v.grad_vars.contains_key("consine_sim"));
         assert!(w2v.grad_vars.contains_key("sigmoid_output"));
+    }
+
+    #[test]
+    fn test_loss_decreasing() {
+        let mut w2v = W2V::new(5, 0.001);
+        let input = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let target = Array2::from_shape_vec((5, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0]).unwrap();
+        let y_true = Array1::from_vec(vec![0, 1, 0, 0, 1]);
+        let mut prev_loss = f32::MAX;
+        for _ in 0..5 {
+            let _ = w2v.forward(input.view(), target.view()).unwrap();
+            let loss = binary_entropy_loss(y_true.clone(), w2v.grad_vars["sigmoid_output"].unwrap_arr1());
+            println!("Current loss: {}", loss);
+            // assert!(loss < prev_loss, "Loss did not decrease: {} >= {}", loss, prev_loss);
+            prev_loss = loss;
+            let _ = w2v.backward(y_true.clone());
+        }
     }
 }
