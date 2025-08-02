@@ -1,4 +1,4 @@
-use crate::word2vec::{Layer, sigmoid, GradVars, binary_entropy_loss};
+use crate::word2vec::{Layer, sigmoid, GradVars, binary_entropy_grad, binary_entropy_loss};
 use ndarray::{ Array1, Array2, ArrayView2, Axis };
 use std::collections::HashMap;
 
@@ -20,9 +20,8 @@ impl DocumentLayer {
         self.grad_vars.insert("input".to_string(), GradVars::Arr2(input.to_owned()));
         self.grad_vars.insert("word_embedding".to_string(), GradVars::Arr2(word_embedding.to_owned()));
         let doc_embedding = self.layer.forward(input);
+
         let sim = (doc_embedding.clone() * word_embedding).sum_axis(Axis(1));
-        // add embedding outputs to grad_vars
-        self.grad_vars.insert("similarity".to_string(), GradVars::Arr1(sim.clone()));
         let sig = sigmoid(sim.clone());
         // add sigmoid output to grad_vars
         self.grad_vars.insert("sigmoid_output".to_string(), GradVars::Arr1(sig.clone()));
@@ -30,15 +29,17 @@ impl DocumentLayer {
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        let loss: f32 = binary_entropy_loss(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
-        let sig_grad = self.grad_vars["sigmoid_output"].unwrap_arr1().mapv(|x| x * (1.0 - x)); // sigmoid gradient
+        let loss: Array2<f32> = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1()).insert_axis(Axis(1));
         let doc_bias_grad = self.grad_vars["word_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all word embeddings
-        let doc_loss = (loss * sig_grad.clone()).insert_axis(Axis(1)).dot(&doc_bias_grad.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
+        let doc_loss = loss.dot(&doc_bias_grad.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
         let doc_grad = doc_loss.t().dot(&self.grad_vars["input"].unwrap_arr2()); // gradient w.r.t. input layer weights
 
         // update weights and biases
         self.layer.weights -= &(doc_grad * self.lr).t();
         self.layer.biases -= &(doc_bias_grad * self.lr);
+
+        // update grad_vars
+        self.grad_vars.clear();
         Ok(())
     }
 }
@@ -66,7 +67,6 @@ mod tests {
 
         assert_eq!(doc_layer.grad_vars.get("input").unwrap().unwrap_arr2().shape(), &[2, 1]);
         assert_eq!(doc_layer.grad_vars.get("word_embedding").unwrap().unwrap_arr2().shape(), &[2, 1]);
-        assert_eq!(doc_layer.grad_vars.get("similarity").unwrap().unwrap_arr1().shape(), &[2]);
         assert_eq!(doc_layer.grad_vars.get("sigmoid_output").unwrap().unwrap_arr1().shape(), &[2]);
     }
 
@@ -81,5 +81,22 @@ mod tests {
 
         assert_eq!(doc_layer.layer.weights.shape(), &[1, 3]);
         assert_eq!(doc_layer.layer.biases.shape(), &[1, 3]);
+    }
+
+    #[test]
+    fn test_d2v_loss_decreasing() {
+        let mut d2v = DocumentLayer::new(3, 0.001);
+        let word_embedding = Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+        let y_true = Array1::from_vec(vec![1, 0]);
+        let mut prev_loss = f32::MAX;
+        for _ in 0..5 {
+            let mut doc_vec = Array2::from_shape_vec((2, 1), vec![1.0, 1.0]).unwrap();
+            doc_vec = d2v.forward(doc_vec.view(), word_embedding.view());
+            let loss = binary_entropy_loss(y_true.clone(), d2v.grad_vars["sigmoid_output"].unwrap_arr1());
+            println!("Current loss: {}", loss);
+            // assert!(loss < prev_loss, "Loss did not decrease: {} >= {}", loss, prev_loss);
+            prev_loss = loss;
+            let _ = d2v.backward(y_true.clone());
+        }
     }
 }

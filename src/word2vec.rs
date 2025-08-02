@@ -135,6 +135,8 @@ impl W2V {
         self.context_layer.biases -= &(input_sum * self.lr);
         self.input_layer.weights -= &(input_grad * self.lr);
         self.context_layer.weights -= &(target_grad * self.lr);
+
+        self.grad_vars.clear();
         Ok(())
     }
 }
@@ -222,12 +224,6 @@ mod tests {
         assert_eq!(w2v.context_layer.biases.shape(), &[1, 5]);
         assert_eq!(w2v.input_layer.weights.shape(), &[1, 5]);
         assert_eq!(w2v.context_layer.weights.shape(), &[1, 5]);
-        assert!(w2v.grad_vars.contains_key("input"));
-        assert!(w2v.grad_vars.contains_key("context"));
-        assert!(w2v.grad_vars.contains_key("input_embedding"));
-        assert!(w2v.grad_vars.contains_key("context_embedding"));
-        assert!(w2v.grad_vars.contains_key("consine_sim"));
-        assert!(w2v.grad_vars.contains_key("sigmoid_output"));
     }
 
     #[test]
