@@ -116,7 +116,6 @@ impl W2V {
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
         let loss: Array2<f32> = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1()).insert_axis(Axis(1)); // gradient of binary cross-entropy loss
-        let sig_grad = self.grad_vars["sigmoid_output"].unwrap_arr1().mapv(|x| x * (1.0 - x)); // sigmoid gradient
         let context_sum = self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all context embeddings
         let input_sum = self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all input embeddings
 
