@@ -92,6 +92,10 @@ impl Vocab {
         };
         Ok(id)
     }
+
+    pub fn __len__(&self) -> PyResult<usize> {
+        Ok(self.size)
+    }
 }
 
 fn subsample(token_id: &usize, word_to_freq: &HashMap<usize, f64>, vocab_size: usize) -> Option<usize> {

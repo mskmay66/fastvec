@@ -1,6 +1,6 @@
 from typing import List
 
-from .word2vec import Word2Vec, simple_preprocessing, infer_doc_vectors
+from fastvec import Word2Vec, simple_preprocessing, infer_doc_vectors
 
 
 class Doc2Vec(Word2Vec):

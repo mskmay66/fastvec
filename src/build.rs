@@ -1,7 +1,8 @@
 use pyo3::prelude::*;
 use crate::vocab::Vocab;
 use random_word::Lang;
-use itertools::Itertools;
+// use itertools::Itertools;
+use itertools::iproduct;
 
 fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u32)> {
     let mut samples = Vec::new();
@@ -141,18 +142,27 @@ impl Builder {
     }
 
     fn build_example(&self, encoded_doc: Vec<usize>, context_window: usize) -> PyResult<TrainingSet> {
+        if encoded_doc.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err("Encoded document is empty"));
+        } else if (context_window == 0) {
+            return Err(pyo3::exceptions::PyValueError::new_err("Context window size must be greater than 0"));
+        } else if (encoded_doc.len() < context_window) {
+            // this will happen implictly in the loop but we can handle it here
+            return Ok(TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None));
+        }
+
         let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None);
         for w in encoded_doc.windows(context_window) {
-            for permutation in w.iter().cartesian_product(w.iter()) {
-                let (word, context_word) = (permutation.0, permutation.1);
-                if word == context_word {
-                    continue; // Skip if the word is the same as the context word
-                }
-                training_set.add_example(word.clone(), context_word.clone(), 1);
-                negative_sample(w.to_vec(), word.clone(), &self.vocab, 5).into_iter().for_each(|(input, sample, label)| {
-                    training_set.add_example(input, sample, label);
+            let _ = iproduct!(w.iter(), w.iter())
+                .filter(|(word, context_word)| word != context_word) // Skip if the word is the same as the context word
+                .for_each(|(word, context_word)| {
+                    let input = *word;
+                    let context = *context_word;
+                    training_set.add_example(input, context, 1);
+                    negative_sample(w.to_vec(), input, &self.vocab, 5).into_iter().for_each(|(input, sample, label)| {
+                        training_set.add_example(input, sample, label);
+                    });
                 });
-            }
         }
         Ok(training_set)
     }
@@ -199,7 +209,7 @@ mod tests {
     fn test_build_example() {
         let documents = generate_random_documents(25, 10);
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
-        let builder = Builder::new(documents, vocab, Some(3));
+        let builder = Builder::new(documents, vocab, Some(5));
 
         let encoded_doc: Vec<usize> = (0..10).map(|_| {builder.vocab.get_random_id(None).unwrap()}).collect();
         let training_set = builder.build_example(encoded_doc.clone(), 3).unwrap();

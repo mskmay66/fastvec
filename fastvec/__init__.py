@@ -1,6 +1,15 @@
-from .fastvec import Vocab, Embedding, Builder, Tokens, simple_preprocessing
-from .word2vec import Word2Vec, Word2VecDataset
-from .doc2vec import Doc2Vec, Doc2VecDataset
+from .fastvec import (
+    Vocab,
+    Embedding,
+    Builder,
+    Tokens,
+    TrainingSet,
+    simple_preprocessing,
+    train_word2vec,
+    infer_doc_vectors,
+)
+from .word2vec import Word2Vec
+from .doc2vec import Doc2Vec
 from .model import FastvecModel
 
 __all__ = [
@@ -12,6 +21,9 @@ __all__ = [
     "Embedding",
     "Builder",
     "Tokens",
+    "TrainingSet",
     "simple_preprocessing",
+    "train_word2vec",
+    "infer_doc_vectors",
     "FastvecModel",
 ]

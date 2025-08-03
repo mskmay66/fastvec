@@ -25,8 +25,8 @@ pub fn train_word2vec(training_set: TrainingSet, embedding_dim: usize, lr: f32, 
     let mut embeddings = Embedding::new(embedding_dim);
     for epoch in 0..epochs {
         for (input, target, label) in &training_set {
-            let input_array: Array2<f32> = Array2::from_shape_vec((1, input.len()), input.clone()).unwrap();
-            let target_array: Array2<f32> = Array2::from_shape_vec((1, target.len()), target.clone()).unwrap();
+            let input_array: Array2<f32> = Array2::from_shape_vec((input.len(), 1), input.clone()).unwrap();
+            let target_array: Array2<f32> = Array2::from_shape_vec((target.len(), 1), target.clone()).unwrap();
             let label_array: Array1<u32> = Array1::from_vec(label.clone());
 
             // Forward pass
@@ -52,15 +52,15 @@ pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32)
     let num_samples = word_embeddings.len();
     let dim = word_embeddings[0].len();
     let mut doc_layer = DocumentLayer::new(dim, lr);
-    let mut doc_vectors: Array2<f32> = Array2::random((num_samples, dim), Uniform::new(-1.0, 1.0));
+    let mut doc_embedding: Array2<f32> = Array2::random((num_samples, dim), Uniform::new(-1.0, 1.0));
     let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings.into_iter().flatten().collect()).unwrap();
 
     for _ in 0..epochs {
-        let doc_vectors = doc_layer.forward(word_vectors.view(), doc_vectors.view()); // TODO: shadow wont work in scope
+        let doc_embedding = doc_layer.forward(word_vectors.view(), doc_embedding.view()); // TODO: shadow wont work in scope
         let _ = doc_layer.backward(Array1::ones(num_samples));
     }
 
-    Ok(doc_vectors.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
+    Ok(doc_embedding.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
 }
 
 
@@ -73,6 +73,33 @@ fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<preprocessing::Tokens>()?;
     m.add_function(wrap_pyfunction!(simple_preprocessing, m)?)?;
     m.add_function(wrap_pyfunction!(train_word2vec, m)?)?;
-    // m.add_function(wrap_pyfunction!(infer_doc_vectors, m)?)?;
+    m.add_function(wrap_pyfunction!(infer_doc_vectors, m)?)?;
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_train_word2vec() {
+        let documents = vec![
+            vec!["hello".to_string(), "world".to_string()],
+            vec!["fast".to_string(), "vector".to_string()],
+        ];
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let builder = Builder::new(documents, vocab, Some(2));
+        let training_set = builder.build_training(None).unwrap();
+
+        let embedding_dim = 3;
+        let lr = 0.01;
+        let epochs = 1;
+
+        let embeddings = train_word2vec(training_set, embedding_dim, lr, epochs).unwrap();
+        println!("Embeddings: {:?}", embeddings.vectors);
+        assert_eq!(embeddings.dim, embedding_dim);
+        assert!(!embeddings.vectors.is_empty());
+        assert!(embeddings.vectors.len() > 0);
+    }
 }
