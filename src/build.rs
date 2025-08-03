@@ -169,6 +169,11 @@ impl Builder {
 
     pub fn build_training(&self, batch_size: Option<usize>) -> PyResult<TrainingSet> {
         let context_window: usize = self.window.unwrap_or(5);
+        let biggest_doc_size = self.documents.iter().map(|doc| doc.len()).max().unwrap_or(0);
+        if biggest_doc_size < context_window {
+            return Err(pyo3::exceptions::PyValueError::new_err("Context window size is larger than the largest document"));
+        }
+
         let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size);
         self.documents.iter().for_each(|doc| {
             let encoded_doc = self.vocab.get_ids(doc.clone()).unwrap();
