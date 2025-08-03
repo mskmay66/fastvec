@@ -1,7 +1,6 @@
-use rayon::prelude::*;
 use pyo3::prelude::*;
+use rayon::prelude::*;
 use std::collections::HashMap;
-
 
 #[pyclass]
 pub struct Embedding {
@@ -9,7 +8,6 @@ pub struct Embedding {
     #[pyo3(get)]
     pub vectors: HashMap<usize, Vec<f32>>,
 }
-
 
 #[pymethods]
 impl Embedding {
@@ -23,7 +21,9 @@ impl Embedding {
 
     pub fn add_vector(&mut self, id: usize, vector: Vec<f32>) -> PyResult<()> {
         if vector.len() != self.dim {
-            return Err(pyo3::exceptions::PyValueError::new_err("Vector dimension mismatch"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Vector dimension mismatch",
+            ));
         }
         self.vectors.insert(id, vector);
         Ok(())
@@ -31,11 +31,13 @@ impl Embedding {
 
     pub fn add_vectors(&mut self, ids: Vec<usize>, vectors: Vec<Vec<f32>>) -> PyResult<()> {
         if ids.len() != vectors.len() {
-            return Err(pyo3::exceptions::PyValueError::new_err("IDs and vectors length mismatch"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "IDs and vectors length mismatch",
+            ));
         }
-        ids.iter().zip(vectors).try_for_each(|(id, vector)| {
-            self.add_vector(*id, vector)
-        })?;
+        ids.iter()
+            .zip(vectors)
+            .try_for_each(|(id, vector)| self.add_vector(*id, vector))?;
         Ok(())
     }
 
@@ -47,16 +49,16 @@ impl Embedding {
     }
 
     pub fn get_vectors(&self, ids: Vec<usize>) -> PyResult<Vec<Vec<f32>>> {
-        Ok(ids.par_iter().filter_map(|id| {
-            self.get_vector(id.clone()).unwrap()
-        }).collect())
+        Ok(ids
+            .par_iter()
+            .filter_map(|id| self.get_vector(id.clone()).unwrap())
+            .collect())
     }
 
     pub fn __len__(&self) -> PyResult<usize> {
         Ok(self.vectors.len())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -89,7 +91,11 @@ mod tests {
     fn test_add_vectors() {
         let mut embedding = Embedding::new(3);
         let ids = vec![1, 2, 3];
-        let vectors = vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6], vec![0.7, 0.8, 0.9]];
+        let vectors = vec![
+            vec![0.1, 0.2, 0.3],
+            vec![0.4, 0.5, 0.6],
+            vec![0.7, 0.8, 0.9],
+        ];
 
         embedding.add_vectors(ids.clone(), vectors.clone()).unwrap();
         assert_eq!(embedding.vectors.len(), 3);
@@ -126,6 +132,9 @@ mod tests {
         assert_eq!(vectors[1], vec![0.4, 0.5, 0.6]);
         let vectors = embedding.get_vectors(vec![3, 4]).unwrap();
         assert!(vectors.is_empty()); // IDs 3 and 4 do not exist
-        assert_eq!(embedding.get_vectors(vec![]).unwrap(), Vec::<Vec<f32>>::new()); // Empty input should return empty vector
+        assert_eq!(
+            embedding.get_vectors(vec![]).unwrap(),
+            Vec::<Vec<f32>>::new()
+        ); // Empty input should return empty vector
     }
 }

@@ -1,10 +1,15 @@
-use pyo3::prelude::*;
 use crate::vocab::Vocab;
+use pyo3::prelude::*;
 use random_word::Lang;
 // use itertools::Itertools;
 use itertools::iproduct;
 
-fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_samples: usize) -> Vec<(usize, usize, u32)> {
+fn negative_sample(
+    window: Vec<usize>,
+    input: usize,
+    vocabulary: &Vocab,
+    num_samples: usize,
+) -> Vec<(usize, usize, u32)> {
     let mut samples = Vec::new();
     let w = Some(window);
     for _ in 0..num_samples {
@@ -13,7 +18,6 @@ fn negative_sample(window: Vec<usize>, input: usize, vocabulary: &Vocab, num_sam
     }
     samples
 }
-
 
 #[pyclass]
 #[derive(Clone)]
@@ -33,7 +37,12 @@ pub struct TrainingSet {
 #[pymethods]
 impl TrainingSet {
     #[new]
-    pub fn new(input_words: Vec<usize>, context_words: Vec<usize>, labels: Vec<u32>, batch_size: Option<usize>) -> Self {
+    pub fn new(
+        input_words: Vec<usize>,
+        context_words: Vec<usize>,
+        labels: Vec<u32>,
+        batch_size: Option<usize>,
+    ) -> Self {
         let curr = 0;
         let next = 0;
         TrainingSet {
@@ -42,7 +51,7 @@ impl TrainingSet {
             labels,
             batch_size: batch_size.unwrap_or(32), // Default batch size
             curr,
-            next
+            next,
         }
     }
 
@@ -61,7 +70,9 @@ impl TrainingSet {
 
     pub fn get_batch(&self, start: usize, end: usize) -> PyResult<(Vec<f32>, Vec<f32>, Vec<u32>)> {
         if start >= self.input_words.len() || end > self.input_words.len() || start >= end {
-            return Err(pyo3::exceptions::PyIndexError::new_err("Invalid range for batch"));
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                "Invalid range for batch",
+            ));
         }
         let input_batch = self.input_words[start..end].to_vec();
         let context_batch = self.context_words[start..end].to_vec();
@@ -75,7 +86,9 @@ impl TrainingSet {
 
     pub fn get_item(&self, idx: usize) -> PyResult<(f32, f32, u32)> {
         if idx >= self.input_words.len() {
-            return Err(pyo3::exceptions::PyIndexError::new_err("Index out of range"));
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                "Index out of range",
+            ));
         }
         Ok((
             self.input_words[idx],
@@ -104,7 +117,6 @@ impl Iterator for TrainingSet {
     }
 }
 
-
 impl<'a> IntoIterator for &'a TrainingSet {
     type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
     type IntoIter = TrainingSet;
@@ -120,7 +132,6 @@ impl<'a> IntoIterator for &'a TrainingSet {
         }
     }
 }
-
 
 #[pyclass]
 pub struct Builder {
@@ -141,11 +152,19 @@ impl Builder {
         }
     }
 
-    fn build_example(&self, encoded_doc: Vec<usize>, context_window: usize) -> PyResult<TrainingSet> {
+    fn build_example(
+        &self,
+        encoded_doc: Vec<usize>,
+        context_window: usize,
+    ) -> PyResult<TrainingSet> {
         if encoded_doc.is_empty() {
-            return Err(pyo3::exceptions::PyValueError::new_err("Encoded document is empty"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Encoded document is empty",
+            ));
         } else if (context_window == 0) {
-            return Err(pyo3::exceptions::PyValueError::new_err("Context window size must be greater than 0"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Context window size must be greater than 0",
+            ));
         } else if (encoded_doc.len() < context_window) {
             // this will happen implictly in the loop but we can handle it here
             return Ok(TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None));
@@ -159,9 +178,11 @@ impl Builder {
                     let input = *word;
                     let context = *context_word;
                     training_set.add_example(input, context, 1);
-                    negative_sample(w.to_vec(), input, &self.vocab, 5).into_iter().for_each(|(input, sample, label)| {
-                        training_set.add_example(input, sample, label);
-                    });
+                    negative_sample(w.to_vec(), input, &self.vocab, 5)
+                        .into_iter()
+                        .for_each(|(input, sample, label)| {
+                            training_set.add_example(input, sample, label);
+                        });
                 });
         }
         Ok(training_set)
@@ -169,15 +190,25 @@ impl Builder {
 
     pub fn build_training(&self, batch_size: Option<usize>) -> PyResult<TrainingSet> {
         let context_window: usize = self.window.unwrap_or(5);
-        let biggest_doc_size = self.documents.iter().map(|doc| doc.len()).max().unwrap_or(0);
+        let biggest_doc_size = self
+            .documents
+            .iter()
+            .map(|doc| doc.len())
+            .max()
+            .unwrap_or(0);
         if biggest_doc_size < context_window {
-            return Err(pyo3::exceptions::PyValueError::new_err("Context window size is larger than the largest document"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Context window size is larger than the largest document",
+            ));
         }
 
         let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size);
         self.documents.iter().for_each(|doc| {
             let encoded_doc = self.vocab.get_ids(doc.clone()).unwrap();
-            let _ = training_set.extend(self.build_example(encoded_doc, context_window).expect("Failed to build example"));
+            let _ = training_set.extend(
+                self.build_example(encoded_doc, context_window)
+                    .expect("Failed to build example"),
+            );
         });
         Ok(training_set)
     }
@@ -192,7 +223,6 @@ fn generate_random_documents(num_docs: usize, num_words: usize) -> Vec<Vec<Strin
         })
         .collect()
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -216,7 +246,9 @@ mod tests {
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
         let builder = Builder::new(documents, vocab, Some(5));
 
-        let encoded_doc: Vec<usize> = (0..10).map(|_| {builder.vocab.get_random_id(None).unwrap()}).collect();
+        let encoded_doc: Vec<usize> = (0..10)
+            .map(|_| builder.vocab.get_random_id(None).unwrap())
+            .collect();
         let training_set = builder.build_example(encoded_doc.clone(), 3).unwrap();
 
         assert!(training_set.input_words.len() > 0);

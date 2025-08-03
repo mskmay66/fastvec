@@ -3,21 +3,17 @@ use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 use std::collections::HashMap;
 
-
 pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> Array1<f32> {
     pred - target.mapv(|x| x as f32)
 }
-
 
 pub fn binary_entropy_loss(target: Array1<u32>, pred: Array1<f32>) -> f32 {
     let epsilon = 1e-15; // to avoid log(0)
     let t = target.mapv(|x| x as f32);
     let pred_clipped = pred.mapv(|x| x.max(epsilon).min(1.0 - epsilon));
-    let loss = -t.clone() * pred_clipped.mapv(|x| x.ln()) - (1.0 - t) * (1.0 - pred_clipped).mapv(|x| x.ln());
-    loss.mean_axis(Axis(0))
-        .unwrap()
-        .into_scalar()
-        .max(0.0) // ensure non-negative loss
+    let loss = -t.clone() * pred_clipped.mapv(|x| x.ln())
+        - (1.0 - t) * (1.0 - pred_clipped).mapv(|x| x.ln());
+    loss.mean_axis(Axis(0)).unwrap().into_scalar().max(0.0) // ensure non-negative loss
 }
 
 pub fn sigmoid(output: Array1<f32>) -> Array1<f32> {
@@ -47,8 +43,7 @@ impl Layer {
     }
 }
 
-
-pub enum GradVars{
+pub enum GradVars {
     Arr1(Array1<f32>),
     Arr2(Array2<f32>),
 }
@@ -69,7 +64,6 @@ impl GradVars {
     }
 }
 
-
 pub struct W2V {
     pub embedding_dim: usize,
     pub lr: f32,
@@ -77,7 +71,6 @@ pub struct W2V {
     pub context_layer: Layer,
     grad_vars: HashMap<String, GradVars>,
 }
-
 
 impl W2V {
     pub fn new(embedding_dim: usize, lr: f32) -> Self {
@@ -92,32 +85,56 @@ impl W2V {
         }
     }
 
-    pub fn forward(&mut self, input: ArrayView2<f32>, context: ArrayView2<f32>) -> Result<Array2<f32>, String> {
+    pub fn forward(
+        &mut self,
+        input: ArrayView2<f32>,
+        context: ArrayView2<f32>,
+    ) -> Result<Array2<f32>, String> {
         // add input and target to grad_vars
-        self.grad_vars.insert("input".to_string(), GradVars::Arr2(input.to_owned()));
-        self.grad_vars.insert("context".to_string(), GradVars::Arr2(context.to_owned()));
+        self.grad_vars
+            .insert("input".to_string(), GradVars::Arr2(input.to_owned()));
+        self.grad_vars
+            .insert("context".to_string(), GradVars::Arr2(context.to_owned()));
 
         let input_embedding = self.input_layer.forward(input);
         let context_embedding = self.context_layer.forward(context);
 
         // add embedding outputs to grad_vars
-        self.grad_vars.insert("input_embedding".to_string(), GradVars::Arr2(input_embedding.clone()));
-        self.grad_vars.insert("context_embedding".to_string(), GradVars::Arr2(context_embedding.clone()));
-        let consine_sim = (input_embedding.clone() * context_embedding.clone()).mean_axis(Axis(1)).unwrap();
+        self.grad_vars.insert(
+            "input_embedding".to_string(),
+            GradVars::Arr2(input_embedding.clone()),
+        );
+        self.grad_vars.insert(
+            "context_embedding".to_string(),
+            GradVars::Arr2(context_embedding.clone()),
+        );
+        let consine_sim = (input_embedding.clone() * context_embedding.clone())
+            .mean_axis(Axis(1))
+            .unwrap();
 
         // add cosine similarity to grad_vars
-        self.grad_vars.insert("consine_sim".to_string(), GradVars::Arr1(consine_sim.clone()));
+        self.grad_vars.insert(
+            "consine_sim".to_string(),
+            GradVars::Arr1(consine_sim.clone()),
+        );
         // apply sigmoid to cosine similarity
         let sig = sigmoid(consine_sim.clone());
         // add sigmoid output to grad_vars
-        self.grad_vars.insert("sigmoid_output".to_string(), GradVars::Arr1(sig.clone()));
+        self.grad_vars
+            .insert("sigmoid_output".to_string(), GradVars::Arr1(sig.clone()));
         Ok(input_embedding)
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        let loss: Array2<f32> = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1()).insert_axis(Axis(1)); // gradient of binary cross-entropy loss
-        let context_sum = self.grad_vars["context_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all context embeddings
-        let input_sum = self.grad_vars["input_embedding"].unwrap_arr2().sum_axis(Axis(0)); // sum over all input embeddings
+        let loss: Array2<f32> =
+            binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1())
+                .insert_axis(Axis(1)); // gradient of binary cross-entropy loss
+        let context_sum = self.grad_vars["context_embedding"]
+            .unwrap_arr2()
+            .sum_axis(Axis(0)); // sum over all context embeddings
+        let input_sum = self.grad_vars["input_embedding"]
+            .unwrap_arr2()
+            .sum_axis(Axis(0)); // sum over all input embeddings
 
         let input_before_weights = loss.dot(&context_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
         let target_before_weights = loss.dot(&input_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. target word embedding
@@ -141,11 +158,9 @@ impl W2V {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_loss() {
@@ -202,12 +217,46 @@ mod tests {
         let word_embedding = w2v.forward(input.view(), target.view()).unwrap();
         assert_eq!(word_embedding.shape(), &[5, 5]);
 
-        assert_eq!(w2v.grad_vars.get("input").unwrap().unwrap_arr2().shape(), &[5, 1]);
-        assert_eq!(w2v.grad_vars.get("context").unwrap().unwrap_arr2().shape(), &[5, 1]);
-        assert_eq!(w2v.grad_vars.get("input_embedding").unwrap().unwrap_arr2().shape(), &[5, 5]);
-        assert_eq!(w2v.grad_vars.get("context_embedding").unwrap().unwrap_arr2().shape(), &[5, 5]);
-        assert_eq!(w2v.grad_vars.get("consine_sim").unwrap().unwrap_arr1().shape(), &[5]);
-        assert_eq!(w2v.grad_vars.get("sigmoid_output").unwrap().unwrap_arr1().shape(), &[5]);
+        assert_eq!(
+            w2v.grad_vars.get("input").unwrap().unwrap_arr2().shape(),
+            &[5, 1]
+        );
+        assert_eq!(
+            w2v.grad_vars.get("context").unwrap().unwrap_arr2().shape(),
+            &[5, 1]
+        );
+        assert_eq!(
+            w2v.grad_vars
+                .get("input_embedding")
+                .unwrap()
+                .unwrap_arr2()
+                .shape(),
+            &[5, 5]
+        );
+        assert_eq!(
+            w2v.grad_vars
+                .get("context_embedding")
+                .unwrap()
+                .unwrap_arr2()
+                .shape(),
+            &[5, 5]
+        );
+        assert_eq!(
+            w2v.grad_vars
+                .get("consine_sim")
+                .unwrap()
+                .unwrap_arr1()
+                .shape(),
+            &[5]
+        );
+        assert_eq!(
+            w2v.grad_vars
+                .get("sigmoid_output")
+                .unwrap()
+                .unwrap_arr1()
+                .shape(),
+            &[5]
+        );
     }
 
     // TODO: Write tests for W2V backward pass
@@ -235,7 +284,10 @@ mod tests {
         let mut prev_loss = f32::MAX;
         for _ in 0..5 {
             let _ = w2v.forward(input.view(), target.view()).unwrap();
-            let loss = binary_entropy_loss(y_true.clone(), w2v.grad_vars["sigmoid_output"].unwrap_arr1());
+            let loss = binary_entropy_loss(
+                y_true.clone(),
+                w2v.grad_vars["sigmoid_output"].unwrap_arr1(),
+            );
             println!("Current loss: {}", loss);
             // assert!(loss < prev_loss, "Loss did not decrease: {} >= {}", loss, prev_loss);
             prev_loss = loss;

@@ -1,8 +1,7 @@
-use rayon::prelude::*;
 use pyo3::prelude::*;
-use std::collections::HashMap;
 use rand::prelude::*;
-
+use rayon::prelude::*;
+use std::collections::HashMap;
 
 #[pyclass]
 #[derive(Clone, Debug)]
@@ -60,7 +59,10 @@ impl Vocab {
     }
 
     pub fn get_ids(&self, words: Vec<String>) -> PyResult<Vec<usize>> {
-        Ok(words.par_iter().filter_map(|word| self.get_id(word).unwrap()).collect())
+        Ok(words
+            .par_iter()
+            .filter_map(|word| self.get_id(word).unwrap())
+            .collect())
     }
 
     pub fn add_word(&mut self, word: &str) -> PyResult<()> {
@@ -98,16 +100,19 @@ impl Vocab {
     }
 }
 
-fn subsample(token_id: &usize, word_to_freq: &HashMap<usize, f64>, vocab_size: usize) -> Option<usize> {
-        let freq = word_to_freq.get(token_id).unwrap_or(&0.1) / vocab_size as f64;
-        let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
-        let r: f64 = rand::random();
-        if r < p {
-            return Some(*token_id);
-        }
-        None
+fn subsample(
+    token_id: &usize,
+    word_to_freq: &HashMap<usize, f64>,
+    vocab_size: usize,
+) -> Option<usize> {
+    let freq = word_to_freq.get(token_id).unwrap_or(&0.1) / vocab_size as f64;
+    let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
+    let r: f64 = rand::random();
+    if r < p {
+        return Some(*token_id);
+    }
+    None
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -121,7 +126,11 @@ mod tests {
         assert!(empty_vocab.word_to_id.is_empty());
         assert!(empty_vocab.valid_ids.is_empty());
 
-        let words = vec!["apple".to_string(), "banana".to_string(), "apple".to_string()];
+        let words = vec![
+            "apple".to_string(),
+            "banana".to_string(),
+            "apple".to_string(),
+        ];
         let vocab = Vocab::from_words(words);
         assert_eq!(vocab.size, 2);
         assert_eq!(vocab.words, vec!["apple", "banana"]);
@@ -155,7 +164,11 @@ mod tests {
 
     #[test]
     fn test_get_ids() {
-        let words = vec!["apple".to_string(), "banana".to_string(), "cherry".to_string()];
+        let words = vec![
+            "apple".to_string(),
+            "banana".to_string(),
+            "cherry".to_string(),
+        ];
         let mut vocab = Vocab::new();
         for word in &words {
             vocab.add_word(word).unwrap();

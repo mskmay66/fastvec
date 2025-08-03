@@ -1,8 +1,8 @@
-use unicode_normalization::{UnicodeNormalization};
-use unicode_normalization::char::canonical_combining_class;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use regex::Regex;
+use unicode_normalization::char::canonical_combining_class;
+use unicode_normalization::UnicodeNormalization;
 
 pub struct Tokenizer {
     deacc: bool,
@@ -12,11 +12,21 @@ pub struct Tokenizer {
 
 impl Tokenizer {
     pub fn new() -> Self {
-        Tokenizer { deacc: false, lowercase: true, split_pattern: None }
+        Tokenizer {
+            deacc: false,
+            lowercase: true,
+            split_pattern: None,
+        }
     }
 
-    pub fn deaccent(mut self, yes: bool) -> Self { self.deacc = yes; self }
-    pub fn lowercase(mut self, yes: bool) -> Self { self.lowercase = yes; self }
+    pub fn deaccent(mut self, yes: bool) -> Self {
+        self.deacc = yes;
+        self
+    }
+    pub fn lowercase(mut self, yes: bool) -> Self {
+        self.lowercase = yes;
+        self
+    }
     pub fn split_regex(mut self, pat: &str) -> Self {
         self.split_pattern = Some(Regex::new(pat).expect("Invalid regex pattern"));
         self
@@ -29,20 +39,20 @@ impl Tokenizer {
                 .map(|s| s.to_string())
                 .collect()
         } else {
-            text.split_whitespace()
-                .map(|s| s.to_string())
-                .collect()
+            text.split_whitespace().map(|s| s.to_string()).collect()
         };
 
-        raw.into_iter().map(|mut s| {
-            if self.deacc {
-                s = deaccent(&s);
-            }
-            if self.lowercase {
-                s = s.to_lowercase();
-            }
-            s
-        }).collect()
+        raw.into_iter()
+            .map(|mut s| {
+                if self.deacc {
+                    s = deaccent(&s);
+                }
+                if self.lowercase {
+                    s = s.to_lowercase();
+                }
+                s
+            })
+            .collect()
     }
 }
 
@@ -66,7 +76,11 @@ impl Tokens {
     }
 
     pub fn flatten(&self) -> PyResult<Vec<String>> {
-        Ok(self.tokens.iter().flat_map(|doc| doc.iter().cloned()).collect())
+        Ok(self
+            .tokens
+            .iter()
+            .flat_map(|doc| doc.iter().cloned())
+            .collect())
     }
 
     pub fn __len__(&self) -> PyResult<usize> {
@@ -77,7 +91,9 @@ impl Tokens {
         let len = self.tokens.len() as isize;
         let i = if idx < 0 { len + idx } else { idx } as usize;
         if i >= self.tokens.len() {
-            Err(pyo3::exceptions::PyIndexError::new_err("Index out of range"))
+            Err(pyo3::exceptions::PyIndexError::new_err(
+                "Index out of range",
+            ))
         } else {
             Ok(self.tokens[i].clone())
         }
@@ -109,12 +125,16 @@ pub fn simple_preprocessing(
     split_pattern: Option<String>,
 ) -> PyResult<Tokens> {
     let mut tok = Tokenizer::new();
-    if let Some(d) = deacc { tok = tok.deaccent(d); }
-    if let Some(l) = lowercase { tok = tok.lowercase(l); }
-    if let Some(p) = split_pattern { tok = tok.split_regex(&p); }
-    let tokens = corpus.par_iter()
-        .map(|doc| tok.tokenize(doc))
-        .collect();
+    if let Some(d) = deacc {
+        tok = tok.deaccent(d);
+    }
+    if let Some(l) = lowercase {
+        tok = tok.lowercase(l);
+    }
+    if let Some(p) = split_pattern {
+        tok = tok.split_regex(&p);
+    }
+    let tokens = corpus.par_iter().map(|doc| tok.tokenize(doc)).collect();
     Ok(Tokens::new(tokens))
 }
 
@@ -148,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_flatten() {
-        let toks = Tokens::new(vec![vec!["a".into(), "b".into()], vec!["c".into()] ]);
+        let toks = Tokens::new(vec![vec!["a".into(), "b".into()], vec!["c".into()]]);
         assert_eq!(toks.flatten().unwrap(), vec!["a", "b", "c"]);
     }
 }
