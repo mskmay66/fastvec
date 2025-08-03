@@ -10,8 +10,10 @@ class Doc2Vec(Word2Vec):
     Inherits from Word2Vec and extends its functionality to handle documents.
     """
 
-    def __init__(self, embedding_dim, epochs=100, inference_epochs=10):
-        super(Doc2Vec, self).__init__(embedding_dim, epochs)
+    def __init__(
+        self, embedding_dim, epochs=100, lr=0.01, batch_size=32, inference_epochs=10
+    ):
+        super(Doc2Vec, self).__init__(embedding_dim, epochs, lr, batch_size)
         self.inference_epochs = inference_epochs
 
     def get_embeddings(self, documents: List[str]) -> List[List[float]]:
@@ -26,7 +28,4 @@ class Doc2Vec(Word2Vec):
         """
         tokens = simple_preprocessing(documents, deacc=True)
         word_vecs = super().get_embeddings(tokens.flatten())
-        return infer_doc_vectors(
-            word_vecs,
-            epochs=self.inference_epochs,
-        )
+        return infer_doc_vectors(word_vecs, epochs=self.inference_epochs, lr=self.lr)

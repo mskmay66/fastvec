@@ -19,6 +19,7 @@ impl DocumentLayer {
         // add input and word_embedding to grad_vars
         self.grad_vars.insert("input".to_string(), GradVars::Arr2(input.to_owned()));
         self.grad_vars.insert("word_embedding".to_string(), GradVars::Arr2(word_embedding.to_owned()));
+
         let doc_embedding = self.layer.forward(input);
 
         let sim = (doc_embedding.clone() * word_embedding).sum_axis(Axis(1));

@@ -52,15 +52,16 @@ pub fn infer_doc_vectors(word_embeddings: Vec<Vec<f32>>, epochs: usize, lr: f32)
     let num_samples = word_embeddings.len();
     let dim = word_embeddings[0].len();
     let mut doc_layer = DocumentLayer::new(dim, lr);
-    let mut doc_embedding: Array2<f32> = Array2::random((num_samples, dim), Uniform::new(-1.0, 1.0));
+    let mut doc_embedding: Array2<f32> = Array2::random((num_samples, 1), Uniform::new(-1.0, 1.0));
     let word_vectors: Array2<f32> = Array2::from_shape_vec((num_samples, dim), word_embeddings.into_iter().flatten().collect()).unwrap();
 
     for _ in 0..epochs {
-        let doc_embedding = doc_layer.forward(word_vectors.view(), doc_embedding.view()); // TODO: shadow wont work in scope
+        doc_embedding = doc_layer.forward(doc_embedding.view(), word_vectors.view()); // TODO: shadow wont work in scope
+        println!("Document Embedding: {:?}", doc_embedding);
         let _ = doc_layer.backward(Array1::ones(num_samples));
     }
 
-    Ok(doc_embedding.axis_iter(ndarray::Axis(0)).map(|row| row.to_vec()).collect())
+    Ok(doc_embedding.outer_iter().map(|row| row.to_vec()).collect())
 }
 
 
@@ -101,5 +102,21 @@ mod tests {
         assert_eq!(embeddings.dim, embedding_dim);
         assert!(!embeddings.vectors.is_empty());
         assert!(embeddings.vectors.len() > 0);
+    }
+
+    #[test]
+    fn test_infer_doc_vectors() {
+        let word_embeddings = vec![
+            vec![0.1, 0.2, 0.3],
+            vec![0.4, 0.5, 0.6],
+            vec![0.7, 0.8, 0.9],
+        ];
+        let epochs = 1;
+        let lr = 0.01;
+
+        let doc_vectors = infer_doc_vectors(word_embeddings, epochs, lr).unwrap();
+        println!("Document Vectors: {:?}", doc_vectors);
+        assert_eq!(doc_vectors.len(), 3);
+        assert_eq!(doc_vectors[0].len(), 3);
     }
 }
