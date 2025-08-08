@@ -1,8 +1,7 @@
 use crate::vocab::Vocab;
+use itertools::Itertools;
 use pyo3::prelude::*;
-use random_word::Lang;
-// use itertools::Itertools;
-use itertools::iproduct;
+use rayon::prelude::*;
 
 fn negative_sample(
     window: Vec<usize>,
@@ -10,12 +9,13 @@ fn negative_sample(
     vocabulary: &Vocab,
     num_samples: usize,
 ) -> Vec<(usize, usize, u32)> {
-    let mut samples = Vec::new();
-    let w = Some(window);
-    for _ in 0..num_samples {
-        let random_index = vocabulary.get_random_id(w.clone()).unwrap();
-        samples.push((input, random_index, 0 as u32)); // Negative sample
-    }
+    let samples = (0..num_samples)
+        .into_par_iter()
+        .map(|_| {
+            let random_index = vocabulary.get_random_id(None).unwrap();
+            (input, random_index, 0 as u32) // Negative sample
+        })
+        .collect();
     samples
 }
 
@@ -46,8 +46,8 @@ impl TrainingSet {
         let curr = 0;
         let next = 0;
         TrainingSet {
-            input_words: input_words.iter().map(|&x| x as f32).collect(),
-            context_words: context_words.iter().map(|&x| x as f32).collect(),
+            input_words: input_words.par_iter().map(|&x| x as f32).collect(),
+            context_words: context_words.par_iter().map(|&x| x as f32).collect(),
             labels,
             batch_size: batch_size.unwrap_or(32), // Default batch size
             curr,
@@ -172,11 +172,13 @@ impl Builder {
 
         let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None);
         for w in encoded_doc.windows(context_window) {
-            let _ = iproduct!(w.iter(), w.iter())
-                .filter(|(word, context_word)| word != context_word) // Skip if the word is the same as the context word
-                .for_each(|(word, context_word)| {
-                    let input = *word;
-                    let context = *context_word;
+            let _ = w
+                .iter()
+                .combinations(2)
+                .filter(|pair| pair[0] != pair[1]) // Skip if the word is the same as the context word
+                .for_each(|pair| {
+                    let input = *pair[0];
+                    let context = *pair[1];
                     training_set.add_example(input, context, 1);
                     negative_sample(w.to_vec(), input, &self.vocab, 5)
                         .into_iter()
@@ -214,20 +216,21 @@ impl Builder {
     }
 }
 
-fn generate_random_documents(num_docs: usize, num_words: usize) -> Vec<Vec<String>> {
-    (0..num_docs)
-        .map(|_| {
-            (0..num_words)
-                .map(|_| random_word::get(Lang::En).to_string())
-                .collect()
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::vocab::Vocab;
+    use random_word::Lang;
+
+    fn generate_random_documents(num_docs: usize, num_words: usize) -> Vec<Vec<String>> {
+        (0..num_docs)
+            .map(|_| {
+                (0..num_words)
+                    .map(|_| random_word::get(Lang::En).to_string())
+                    .collect()
+            })
+            .collect()
+    }
 
     #[test]
     fn test_builder_creation() {

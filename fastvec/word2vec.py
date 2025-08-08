@@ -39,7 +39,7 @@ class Word2Vec(FastvecModel):
             Load a Word2Vec model from the specified path.
     """
 
-    def __init__(self, embedding_dim, epochs=100, lr=0.01, batch_size=1) -> None:
+    def __init__(self, embedding_dim, epochs=100, lr=0.01, batch_size=128) -> None:
         super(Word2Vec, self).__init__()
         self.embedding_dim = embedding_dim
         self.epochs = epochs
@@ -58,7 +58,7 @@ class Word2Vec(FastvecModel):
         self.vocab = Vocab.from_words(corpus)
 
     def build_training_set(
-        self, documents: List[List[str]], window_size: int = 5
+        self, documents: List[List[str]], window_size: int = 5, num_neg_samples: int = 5
     ) -> TrainingSet:
         """
         Build the training set from the provided data.
@@ -71,7 +71,9 @@ class Word2Vec(FastvecModel):
             TrainingSet: The training set containing word pairs and their contexts.
         """
         builder = Builder(documents, self.vocab, window_size)
-        return builder.build_training(batch_size=self.batch_size)
+        return builder.build_training(
+            num_neg=num_neg_samples, batch_size=self.batch_size
+        )
 
     def train(self, tokens: Tokens, window_size: int = 5) -> None:
         """
@@ -83,7 +85,6 @@ class Word2Vec(FastvecModel):
         """
         self.build_vocab(tokens.flatten())
         examples = self.build_training_set(tokens.tokens, window_size)
-        print(examples.input_words)
         self.embeddings = train_word2vec(
             examples,
             embedding_dim=self.embedding_dim,
