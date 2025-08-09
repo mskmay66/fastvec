@@ -17,6 +17,22 @@ def preprocess_reviews(reviews, doc2vec=False):
 
 
 @wall_time("walltimes/gensim_food_reviews.txt")
+def build_training_set(model, tokens):
+    """
+    Build the training set for the Gensim model.
+
+    Args:
+        model (Doc2Vec or Word2Vec): Gensim model to build the training set for.
+        tokens (List[List[str]]): Preprocessed food reviews.
+        window_size (int): Size of the context window.
+
+    Returns:
+        None: The model's vocabulary is built in place.
+    """
+    model.build_vocab(tokens)
+
+
+@wall_time("walltimes/gensim_food_reviews.txt")
 def train_on_food_reviews(model, tokens):
     """
     Train a Gensim model on food reviews.
@@ -28,7 +44,6 @@ def train_on_food_reviews(model, tokens):
     Returns:
         Doc2Vec or Word2Vec: Trained Gensim model.
     """
-    model.build_vocab(tokens)
     model.train(tokens, total_examples=model.corpus_count, epochs=model.epochs)
 
 
@@ -82,7 +97,7 @@ def main():
         doc2vec = False
 
     tokens = preprocess_reviews(train_reviews, doc2vec=doc2vec)
-
+    build_training_set(model, tokens)
     train_on_food_reviews(model, tokens)
     print(f"Trained {args.model} model with {args.embedding_dim} dimensions.")
     inference_tokens = preprocess_reviews(test_reviews)

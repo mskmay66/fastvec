@@ -1,7 +1,13 @@
 from argparse import ArgumentParser
 from typing import List
 
-from fastvec import FastvecModel, simple_preprocessing, Tokens
+from fastvec import (
+    FastvecModel,
+    simple_preprocessing,
+    Tokens,
+    TrainingSet,
+    train_word2vec,
+)
 from utils import (
     wall_time,
     load_food_reviews,
@@ -26,7 +32,16 @@ def preprocess_reviews(reviews: List[str]) -> List[str]:
 
 
 @wall_time("walltimes/fastvec_food_reviews.txt")
-def train_on_food_reviews(model: FastvecModel, tokens: Tokens) -> FastvecModel:
+def build_training_set(
+    model: FastvecModel, tokens: Tokens, window_size: int = 5
+) -> None:
+    model.build_vocab(tokens.flatten())
+    examples = model.build_training_set(tokens.tokens, window_size)
+    return examples
+
+
+@wall_time("walltimes/fastvec_food_reviews.txt")
+def train_on_food_reviews(model: FastvecModel, examples: TrainingSet) -> FastvecModel:
     """
     Train a FastVec model on food reviews.
 
@@ -39,7 +54,13 @@ def train_on_food_reviews(model: FastvecModel, tokens: Tokens) -> FastvecModel:
     Returns:
         FastvecModel: Trained FastVec model.
     """
-    model.train(tokens)
+    embeddings = train_word2vec(
+        examples,
+        embedding_dim=model.embedding_dim,
+        epochs=model.epochs,
+        lr=model.lr,
+    )
+    model.embeddings = embeddings
 
 
 @wall_time("walltimes/fastvec_food_reviews.txt")
@@ -90,7 +111,8 @@ def main() -> None:
     # Train Doc2Vec model on the food reviews
     model = to_pascal_case(args.model)
     model = globals()[model](embedding_dim=args.embedding_dim, epochs=10)
-    train_on_food_reviews(model, tokens)
+    examples = build_training_set(model, tokens)
+    train_on_food_reviews(model, examples)
 
     # Example usage: Get embeddings for a specific review
     inference(model, test_reviews)

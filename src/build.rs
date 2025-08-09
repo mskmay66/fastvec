@@ -96,6 +96,10 @@ impl TrainingSet {
             self.labels[idx],
         ))
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.input_words.is_empty() && self.context_words.is_empty() && self.labels.is_empty()
+    }
 }
 
 impl Iterator for TrainingSet {
@@ -155,63 +159,117 @@ impl Builder {
     fn build_example(
         &self,
         encoded_doc: Vec<usize>,
+        num_neg: usize,
         context_window: usize,
-    ) -> PyResult<TrainingSet> {
+    ) -> PyResult<(Vec<f32>, Vec<f32>, Vec<u32>)> {
         if encoded_doc.is_empty() {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "Encoded document is empty",
             ));
-        } else if (context_window == 0) {
+        } else if context_window == 0 {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "Context window size must be greater than 0",
             ));
-        } else if (encoded_doc.len() < context_window) {
-            // this will happen implictly in the loop but we can handle it here
-            return Ok(TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None));
+        } else if encoded_doc.len() < context_window {
+            // this will happen implicitly in the loop but we can handle it here
+            return Ok((Vec::new(), Vec::new(), Vec::new()));
         }
 
-        let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), None);
-        for w in encoded_doc.windows(context_window) {
-            let _ = w
-                .iter()
-                .combinations(2)
-                .filter(|pair| pair[0] != pair[1]) // Skip if the word is the same as the context word
-                .for_each(|pair| {
-                    let input = *pair[0];
-                    let context = *pair[1];
-                    training_set.add_example(input, context, 1);
-                    negative_sample(w.to_vec(), input, &self.vocab, 5)
-                        .into_iter()
-                        .for_each(|(input, sample, label)| {
-                            training_set.add_example(input, sample, label);
-                        });
-                });
-        }
-        Ok(training_set)
+        const COMBINATIONS_SIZE: usize = 2;
+        let (input, context, label) = encoded_doc
+            .windows(context_window)
+            .flat_map(|w| {
+                w.iter()
+                    .combinations(COMBINATIONS_SIZE)
+                    .filter(|pair| pair[0] != pair[1]) // Skip if the word is the same as the context word
+                    .flat_map(|pair| {
+                        let input = *pair[0];
+                        let context = *pair[1];
+                        let mut examples = vec![(input, context, 1)];
+                        examples.extend(negative_sample(w.to_vec(), input, &self.vocab, num_neg));
+                        examples
+                    })
+            })
+            .fold(
+                (Vec::new(), Vec::new(), Vec::new()),
+                |mut acc, (input, context, label)| {
+                    acc.0.push(input as f32);
+                    acc.1.push(context as f32);
+                    acc.2.push(label);
+                    acc
+                },
+            );
+        Ok((input, context, label))
     }
 
-    pub fn build_training(&self, batch_size: Option<usize>) -> PyResult<TrainingSet> {
+    pub fn build_training(
+        &self,
+        num_neg: usize,
+        batch_size: Option<usize>,
+    ) -> PyResult<TrainingSet> {
         let context_window: usize = self.window.unwrap_or(5);
-        let biggest_doc_size = self
-            .documents
-            .iter()
-            .map(|doc| doc.len())
-            .max()
-            .unwrap_or(0);
-        if biggest_doc_size < context_window {
+        if self.documents.is_empty() {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "Context window size is larger than the largest document",
+                "No documents available for training",
             ));
         }
 
-        let mut training_set = TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size);
-        self.documents.iter().for_each(|doc| {
-            let encoded_doc = self.vocab.get_ids(doc.clone()).unwrap();
-            let _ = training_set.extend(
-                self.build_example(encoded_doc, context_window)
-                    .expect("Failed to build example"),
+        if self.vocab.size == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Vocabulary is empty, cannot build training set",
+            ));
+        }
+
+        if num_neg == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Number of negative samples must be greater than 0",
+            ));
+        }
+
+        if context_window == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Context window size must be greater than 0",
+            ));
+        }
+
+        if context_window > self.vocab.size {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Context window size cannot be greater than vocabulary size",
+            ));
+        }
+
+        let training_set = self
+            .documents
+            .par_iter()
+            .map(|doc| {
+                let encoded_doc = self.vocab.get_ids(doc.clone()).unwrap_or_else(|_| {
+                    panic!("Failed to encode document: {:?}", doc);
+                });
+                self.build_example(encoded_doc, num_neg, context_window)
+                    .expect("Failed to build example")
+            })
+            .fold(
+                || (TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size)),
+                |mut acc, (input_words, context_words, labels)| {
+                    acc.input_words.extend(input_words);
+                    acc.context_words.extend(context_words);
+                    acc.labels.extend(labels);
+                    acc
+                },
+            )
+            .reduce(
+                || TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size),
+                |mut acc, training_set| {
+                    acc.extend(training_set).unwrap();
+                    acc
+                },
             );
-        });
+
+        if training_set.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "No valid training examples were generated",
+            ));
+        }
         Ok(training_set)
     }
 }
@@ -252,11 +310,11 @@ mod tests {
         let encoded_doc: Vec<usize> = (0..10)
             .map(|_| builder.vocab.get_random_id(None).unwrap())
             .collect();
-        let training_set = builder.build_example(encoded_doc.clone(), 3).unwrap();
+        let training_set = builder.build_example(encoded_doc.clone(), 5, 3).unwrap();
 
-        assert!(training_set.input_words.len() > 0);
-        assert!(training_set.context_words.len() > 0);
-        assert!(training_set.labels.len() > 0);
+        assert!(training_set.0.len() > 0);
+        assert!(training_set.1.len() > 0);
+        assert!(training_set.2.len() > 0);
     }
 
     #[test]
@@ -270,7 +328,7 @@ mod tests {
 
         let builder = Builder::new(documents, vocab, Some(3));
 
-        let training_set = builder.build_training(Some(32)).unwrap();
+        let training_set = builder.build_training(5, Some(32)).unwrap();
         assert!(training_set.input_words.len() > 0);
         assert!(training_set.context_words.len() > 0);
         assert!(training_set.labels.len() > 0);

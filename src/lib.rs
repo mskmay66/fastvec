@@ -81,7 +81,6 @@ pub fn infer_doc_vectors(
 
     for _ in 0..epochs {
         doc_embedding = doc_layer.forward(doc_embedding.view(), word_vectors.view()); // TODO: shadow wont work in scope
-        println!("Document Embedding: {:?}", doc_embedding);
         let _ = doc_layer.backward(Array1::ones(num_samples));
     }
 
@@ -113,7 +112,7 @@ mod tests {
         ];
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
         let builder = Builder::new(documents, vocab, Some(2));
-        let training_set = builder.build_training(None).unwrap();
+        let training_set = builder.build_training(5, None).unwrap();
 
         let embedding_dim = 3;
         let lr = 0.01;
