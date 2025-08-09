@@ -14,6 +14,8 @@ pub struct Vocab {
     pub word_to_id: HashMap<String, usize>,
     #[pyo3(get)]
     pub valid_ids: Vec<usize>,
+    #[pyo3(get)]
+    pub min_count: usize,
 }
 
 #[pymethods]
@@ -25,12 +27,14 @@ impl Vocab {
             words: Vec::new(),
             word_to_id: HashMap::new(),
             valid_ids: Vec::new(),
+            min_count: 5, // default minimum count for subsampling
         }
     }
 
     #[staticmethod]
-    pub fn from_words(words: Vec<String>) -> Self {
+    pub fn from_words(words: Vec<String>, min_count: usize) -> Self {
         let mut vocab = Vocab::new();
+        vocab.min_count = min_count;
         let mut word_to_freq: HashMap<usize, f64> = HashMap::new();
         words.iter().for_each(|word| {
             let _ = vocab.add_word(word);
@@ -46,7 +50,7 @@ impl Vocab {
                 if let Some(id) = vocab.word_to_id.get(word) {
                     if words.len() > 100 {
                         // only subsample larger vocabularies
-                        subsample(id, &word_to_freq, n)
+                        subsample(id, &word_to_freq, n, vocab.min_count)
                     } else {
                         Some(*id)
                     }
@@ -86,10 +90,17 @@ impl Vocab {
     pub fn get_random_id(&self, avoid: Option<Vec<usize>>) -> PyResult<usize> {
         let mut rng = rand::rng();
         let avoid_ids = avoid.unwrap_or(Vec::new());
+        let mut max_iter = 0;
         let id = loop {
             let random_index = rng.random_range(0..(self.size));
             if !&avoid_ids.contains(&random_index) && self.valid_ids.contains(&random_index) {
                 break random_index;
+            }
+            max_iter += 1;
+            if max_iter > self.size {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "No valid random ID found after maximum iterations",
+                ));
             }
         };
         Ok(id)
@@ -104,8 +115,14 @@ fn subsample(
     token_id: &usize,
     word_to_freq: &HashMap<usize, f64>,
     vocab_size: usize,
+    min_count: usize,
 ) -> Option<usize> {
-    let freq = word_to_freq.get(token_id).unwrap_or(&0.1) / vocab_size as f64;
+    let count = word_to_freq.get(token_id).unwrap_or(&0.1);
+    if *count < min_count as f64 {
+        return None; // Skip subsampling for low-frequency words
+    }
+
+    let freq = count / vocab_size as f64;
     let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
     let r: f64 = rand::random();
     if r < p {
@@ -131,7 +148,7 @@ mod tests {
             "banana".to_string(),
             "apple".to_string(),
         ];
-        let vocab = Vocab::from_words(words);
+        let vocab = Vocab::from_words(words, 5);
         assert_eq!(vocab.size, 2);
         assert_eq!(vocab.words, vec!["apple", "banana"]);
         assert_eq!(vocab.word_to_id.get("apple"), Some(&0));
@@ -194,17 +211,17 @@ mod tests {
     #[test]
     fn test_subsample() {
         let mut word_to_freq = HashMap::new();
-        word_to_freq.insert(0, 0.0001);
-        word_to_freq.insert(1, 0.0001);
-        word_to_freq.insert(2, 0.0003);
+        word_to_freq.insert(0, 6.0);
+        word_to_freq.insert(1, 6.0);
+        word_to_freq.insert(2, 10.0);
 
-        let vocab_size = 3;
-        assert!(subsample(&0, &word_to_freq, vocab_size).is_some());
-        assert!(subsample(&1, &word_to_freq, vocab_size).is_some());
-        assert!(subsample(&2, &word_to_freq, vocab_size).is_some());
+        let vocab_size = 30000;
+        assert!(subsample(&0, &word_to_freq, vocab_size, 5).is_some());
+        assert!(subsample(&1, &word_to_freq, vocab_size, 5).is_some());
+        assert!(subsample(&2, &word_to_freq, vocab_size, 5).is_some());
 
         // Test with a frequency that should not be sampled
-        word_to_freq.insert(3, 0.5);
-        assert!(subsample(&3, &word_to_freq, vocab_size + 1).is_none());
+        word_to_freq.insert(3, 1.0);
+        assert!(subsample(&3, &word_to_freq, vocab_size + 1, 5).is_none());
     }
 }

@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn test_builder_creation() {
         let documents = generate_random_documents(25, 10);
-        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 5);
         let builder = Builder::new(documents, vocab, Some(5));
         assert_eq!(builder.documents.len(), 25);
         assert!(builder.vocab.size > 0);
@@ -303,12 +303,18 @@ mod tests {
 
     #[test]
     fn test_build_example() {
-        let documents = generate_random_documents(25, 10);
-        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let mut documents = generate_random_documents(25, 10);
+        documents.push(documents[0].clone()); // Add a duplicate document to test deduplication
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 2);
         let builder = Builder::new(documents, vocab, Some(5));
 
         let encoded_doc: Vec<usize> = (0..10)
-            .map(|_| builder.vocab.get_random_id(None).unwrap())
+            .map(|_| {
+                builder
+                    .vocab
+                    .get_random_id(None)
+                    .expect("Failed to get random ID")
+            })
             .collect();
         let training_set = builder.build_example(encoded_doc.clone(), 5, 3).unwrap();
 
@@ -319,8 +325,9 @@ mod tests {
 
     #[test]
     fn test_build_w2v_training() {
-        let documents = generate_random_documents(25, 10);
-        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let mut documents = generate_random_documents(25, 100);
+        documents.push(documents[0].clone()); // Add a duplicate document to test deduplication
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 2);
         assert!(!vocab.word_to_id.is_empty());
         assert!(!vocab.words.is_empty());
         assert!(vocab.size > 0);
@@ -340,8 +347,9 @@ mod tests {
 
     #[test]
     fn test_negative_sample() {
-        let documents = generate_random_documents(25, 10);
-        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let mut documents = generate_random_documents(25, 1000);
+        documents.push(documents[0].clone()); // Add a duplicate document to test deduplication
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 2);
         let samples = negative_sample(vec![0, 1], 0, &vocab, 2);
         assert_eq!(samples.len(), 2);
         for (input, sample, label) in samples {

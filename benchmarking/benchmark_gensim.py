@@ -102,7 +102,7 @@ def main():
     elif args.model == "word2vec":
         model = Word2Vec(
             vector_size=args.embedding_dim,
-            min_count=1,
+            min_count=5,
             hs=1,
             epochs=10,
             negative=5,

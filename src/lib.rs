@@ -110,7 +110,7 @@ mod tests {
             vec!["hello".to_string(), "world".to_string()],
             vec!["fast".to_string(), "vector".to_string()],
         ];
-        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect());
+        let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 5);
         let builder = Builder::new(documents, vocab, Some(2));
         let training_set = builder.build_training(5, None).unwrap();
 
