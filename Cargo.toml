@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 itertools = "0.14.0"
-ndarray = "0.16.1"
+ndarray =  { version = "0.16.1", features = ["rayon"] }
 ndarray-rand = "0.15.0"
 pyo3 = "0.25.0"
 rand = "0.9.1"

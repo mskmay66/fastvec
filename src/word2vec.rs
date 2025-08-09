@@ -1,6 +1,7 @@
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> Array1<f32> {
@@ -108,9 +109,14 @@ impl W2V {
             "context_embedding".to_string(),
             GradVars::Arr2(context_embedding.clone()),
         );
-        let consine_sim = (input_embedding.clone() * context_embedding.clone())
-            .mean_axis(Axis(1))
-            .unwrap();
+
+        let consine_sim = (0..input_embedding.shape()[0])
+            .map(|i| {
+                let input_vec = input_embedding.row(i);
+                let context_vec = context_embedding.row(i);
+                input_vec.dot(&context_vec)
+            })
+            .collect::<Array1<f32>>();
 
         // add cosine similarity to grad_vars
         self.grad_vars.insert(
@@ -141,7 +147,7 @@ impl W2V {
         let input = self.grad_vars["input"].unwrap_arr2();
         let context = self.grad_vars["context"].unwrap_arr2();
 
-        let it = input.t();
+        let it = input.t(); // copying in memory could make this slow
         let ct = context.t();
 
         let input_grad = it.dot(&input_before_weights); // gradient w.r.t. input layer weights

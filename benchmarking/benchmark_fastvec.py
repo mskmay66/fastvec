@@ -54,13 +54,12 @@ def train_on_food_reviews(model: FastvecModel, examples: TrainingSet) -> Fastvec
     Returns:
         FastvecModel: Trained FastVec model.
     """
-    embeddings = train_word2vec(
+    model.embeddings = train_word2vec(
         examples,
         embedding_dim=model.embedding_dim,
         epochs=model.epochs,
         lr=model.lr,
     )
-    model.embeddings = embeddings
 
 
 @wall_time("walltimes/fastvec_food_reviews.txt")

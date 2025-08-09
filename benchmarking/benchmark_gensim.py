@@ -90,10 +90,24 @@ def main():
     print(f"Train reviews: {len(train_reviews)}, Test reviews: {len(test_reviews)}")
 
     if args.model == "doc2vec":
-        model = Doc2Vec(vector_size=args.embedding_dim, min_count=1, hs=1, epochs=10)
+        model = Doc2Vec(
+            vector_size=args.embedding_dim,
+            min_count=1,
+            hs=1,
+            epochs=10,
+            negative=5,
+            sg=0,
+        )
         doc2vec = True
     elif args.model == "word2vec":
-        model = Word2Vec(vector_size=args.embedding_dim, min_count=1, hs=1, epochs=10)
+        model = Word2Vec(
+            vector_size=args.embedding_dim,
+            min_count=1,
+            hs=1,
+            epochs=10,
+            negative=5,
+            sg=0,
+        )
         doc2vec = False
 
     tokens = preprocess_reviews(train_reviews, doc2vec=doc2vec)
@@ -101,8 +115,6 @@ def main():
     train_on_food_reviews(model, tokens)
     print(f"Trained {args.model} model with {args.embedding_dim} dimensions.")
     inference_tokens = preprocess_reviews(test_reviews)
-
-    print(inference_tokens)
 
     inference(model, inference_tokens)
 

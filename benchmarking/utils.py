@@ -34,7 +34,7 @@ def load_food_reviews(file_path: str) -> List[str]:
         List[str]: Preprocessed food reviews.
     """
     df = pd.read_csv(file_path)
-    df = df.sample(frac=0.001, random_state=42)
+    df = df.sample(frac=0.01, random_state=42)
     print(f"Loaded {len(df)} food reviews from {file_path}")
     reviews = df["Text"].tolist()
     return reviews
