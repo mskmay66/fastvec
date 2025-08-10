@@ -16,7 +16,7 @@ class Doc2Vec(Word2Vec):
         epochs=100,
         lr=0.01,
         batch_size=32,
-        inference_epochs=10,
+        inference_epochs=5,
         min_count=5,
     ):
         super(Doc2Vec, self).__init__(embedding_dim, epochs, lr, batch_size, min_count)

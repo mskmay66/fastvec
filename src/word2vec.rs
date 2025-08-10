@@ -1,5 +1,4 @@
 extern crate ndarray;
-extern crate openblas_src;
 
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use ndarray_rand::rand_distr::Uniform;
@@ -268,7 +267,6 @@ mod tests {
         );
     }
 
-    // TODO: Write tests for W2V backward pass
     #[test]
     fn test_w2v_backward() {
         let mut w2v = W2V::new(5, 0.01);

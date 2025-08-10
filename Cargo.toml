@@ -10,10 +10,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 itertools = "0.14.0"
-ndarray =  { version = "0.16.1", features = ["blas"] }
+ndarray =  "0.16.1"
 ndarray-rand = "0.15.0"
-blas-src = { version = "0.8", features = ["accelerate"] }
-openblas-src = "0.10"
 pyo3 = "0.25.0"
 rand = "0.9.1"
 random_word = { version = "0.5.0", features = ["en"] }
