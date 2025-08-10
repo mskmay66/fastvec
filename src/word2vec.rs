@@ -1,3 +1,6 @@
+extern crate ndarray;
+extern crate openblas_src;
+
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;

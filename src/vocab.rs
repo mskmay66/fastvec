@@ -92,8 +92,12 @@ impl Vocab {
         let avoid_ids = avoid.unwrap_or(Vec::new());
         let mut max_iter = 0;
         let id = loop {
-            let random_index = rng.random_range(0..(self.size));
-            if !&avoid_ids.contains(&random_index) && self.valid_ids.contains(&random_index) {
+            let random_index = self
+                .valid_ids
+                .choose(&mut rng)
+                .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("No valid IDs available"))?
+                .clone();
+            if !&avoid_ids.contains(&random_index) {
                 break random_index;
             }
             max_iter += 1;

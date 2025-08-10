@@ -93,7 +93,7 @@ def main():
         model = Doc2Vec(
             vector_size=args.embedding_dim,
             min_count=1,
-            hs=1,
+            hs=0,
             epochs=10,
             negative=5,
             sg=0,
@@ -103,7 +103,7 @@ def main():
         model = Word2Vec(
             vector_size=args.embedding_dim,
             min_count=5,
-            hs=1,
+            hs=0,
             epochs=10,
             negative=5,
             sg=0,

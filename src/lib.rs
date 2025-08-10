@@ -1,14 +1,14 @@
 use pyo3::prelude::*;
 
-mod build;
+mod builder;
 mod doc2vec;
 mod embedding;
 mod preprocessing;
 mod vocab;
 mod word2vec;
 
-use build::Builder;
-use build::TrainingSet;
+use builder::Builder;
+use builder::TrainingSet;
 use doc2vec::DocumentLayer;
 use embedding::Embedding;
 use ndarray::{Array1, Array2};
