@@ -73,6 +73,7 @@ pub fn infer_doc_vectors(
     let dim = word_embeddings[0].len();
     let mut doc_layer = DocumentLayer::new(dim, lr);
     let mut doc_embedding: Array2<f32> = Array2::random((num_samples, 1), Uniform::new(-1.0, 1.0));
+    let mut out: Array2<f32> = Array2::zeros((num_samples, dim));
     let word_vectors: Array2<f32> = Array2::from_shape_vec(
         (num_samples, dim),
         word_embeddings.into_iter().flatten().collect(),
@@ -80,11 +81,11 @@ pub fn infer_doc_vectors(
     .unwrap();
 
     for _ in 0..epochs {
-        doc_embedding = doc_layer.forward(doc_embedding.view(), word_vectors.view()); // TODO: shadow wont work in scope
+        out = doc_layer.forward(doc_embedding.view(), word_vectors.view());
         let _ = doc_layer.backward(Array1::ones(num_samples));
     }
 
-    Ok(doc_embedding.outer_iter().map(|row| row.to_vec()).collect())
+    Ok(out.outer_iter().map(|row| row.to_vec()).collect())
 }
 
 #[pymodule]
@@ -131,13 +132,14 @@ mod tests {
             vec![0.1, 0.2, 0.3],
             vec![0.4, 0.5, 0.6],
             vec![0.7, 0.8, 0.9],
+            vec![0.1, 0.3, 0.5],
         ];
-        let epochs = 1;
+        let epochs = 2;
         let lr = 0.01;
 
         let doc_vectors = infer_doc_vectors(word_embeddings, epochs, lr).unwrap();
         println!("Document Vectors: {:?}", doc_vectors);
-        assert_eq!(doc_vectors.len(), 3);
+        assert_eq!(doc_vectors.len(), 4);
         assert_eq!(doc_vectors[0].len(), 3);
     }
 }
