@@ -33,7 +33,7 @@ impl DocumentLayer {
 
         let doc_embedding = self.layer.forward(input);
 
-        let sim = (doc_embedding.clone() * word_embedding).sum_axis(Axis(1));
+        let sim = (doc_embedding.clone() * word_embedding).sum_axis(Axis(1)); // this could likely be sped up
         let sig = sigmoid(sim.clone());
         // add sigmoid output to grad_vars
         self.grad_vars
@@ -45,9 +45,11 @@ impl DocumentLayer {
         let loss: Array2<f32> =
             binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1())
                 .insert_axis(Axis(1));
+
         let doc_bias_grad = self.grad_vars["word_embedding"]
             .unwrap_arr2()
             .sum_axis(Axis(0)); // sum over all word embeddings
+
         let doc_loss = loss.dot(&doc_bias_grad.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
         let doc_grad = doc_loss.t().dot(&self.grad_vars["input"].unwrap_arr2()); // gradient w.r.t. input layer weights
 

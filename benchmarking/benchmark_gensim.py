@@ -51,7 +51,7 @@ def train_on_food_reviews(model, tokens):
 def inference(model, inference_tokens):
     if isinstance(model, Doc2Vec):
         # For Doc2Vec, we need to infer vectors for each document
-        return [model.infer_vector(token.words) for token in inference_tokens]
+        return [model.infer_vector(token) for token in inference_tokens]
     return [
         model.wv[token]
         for tokens in inference_tokens
@@ -93,17 +93,16 @@ def main():
         model = Doc2Vec(
             vector_size=args.embedding_dim,
             min_count=1,
-            hs=1,
+            hs=0,
             epochs=10,
             negative=5,
-            sg=0,
         )
         doc2vec = True
     elif args.model == "word2vec":
         model = Word2Vec(
             vector_size=args.embedding_dim,
-            min_count=1,
-            hs=1,
+            min_count=5,
+            hs=0,
             epochs=10,
             negative=5,
             sg=0,

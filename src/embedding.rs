@@ -25,7 +25,7 @@ impl Embedding {
                 "Vector dimension mismatch",
             ));
         }
-        self.vectors.insert(id, vector);
+        self.vectors.entry(id).or_insert(vector);
         Ok(())
     }
 

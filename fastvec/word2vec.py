@@ -39,12 +39,15 @@ class Word2Vec(FastvecModel):
             Load a Word2Vec model from the specified path.
     """
 
-    def __init__(self, embedding_dim, epochs=100, lr=0.01, batch_size=128) -> None:
+    def __init__(
+        self, embedding_dim, epochs=100, lr=0.01, batch_size=128, min_count=5
+    ) -> None:
         super(Word2Vec, self).__init__()
         self.embedding_dim = embedding_dim
         self.epochs = epochs
         self.lr = lr
         self.batch_size = batch_size
+        self.min_count = min_count
 
         self.vocab = None
         self.embeddings = None
@@ -55,7 +58,7 @@ class Word2Vec(FastvecModel):
         Args:
             corpus (List[str]): List of words.
         """
-        self.vocab = Vocab.from_words(corpus)
+        self.vocab = Vocab.from_words(corpus, self.min_count)
 
     def build_training_set(
         self, documents: List[List[str]], window_size: int = 5, num_neg_samples: int = 5
