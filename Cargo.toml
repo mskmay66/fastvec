@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "fastvec"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 itertools = "0.14.0"
@@ -21,3 +21,6 @@ unicode-normalization = "0.1.24"
 
 [profile.release]
 codegen-units = 1
+
+[dev-dependencies]
+criterion = "0.7.0"

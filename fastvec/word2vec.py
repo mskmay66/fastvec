@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import List
 import pickle
+import numpy as np
 
-from fastvec import Vocab, Builder, Tokens, TrainingSet, train_word2vec
+from fastvec import Vocab, Builder, Tokens, TrainingSet, train_word2vec, Embedding
 from .model import FastvecModel
 
 
@@ -86,6 +87,7 @@ class Word2Vec(FastvecModel):
             tokens (Tokens): List of words.
             window_size (int): Size of the context window.
         """
+        self.embeddings = Embedding(self.embedding_dim)
         self.build_vocab(tokens.flatten())
         examples = self.build_training_set(tokens.tokens, window_size)
         self.embeddings = train_word2vec(
@@ -93,6 +95,20 @@ class Word2Vec(FastvecModel):
             embedding_dim=self.embedding_dim,
             epochs=self.epochs,
             lr=self.lr,
+        )
+
+    def _train(self, examples: TrainingSet) -> np.ndarray:
+        """Train the Word2Vec model on the provided training examples.
+        Args:
+            examples (TrainingSet): The training examples to train the model on.
+        Returns:
+            Embedding: The learned embeddings after training.
+        """
+        for _ in range(self.epochs):
+            for inputs, context, labels in examples:
+                self.model(np.array(inputs), np.array(context), np.array(labels))
+        return self.model(
+            np.array(examples.input_words), np.array(examples.context_words)
         )
 
     def get_embeddings(self, words: List[str]) -> List[List[float]]:

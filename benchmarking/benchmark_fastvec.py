@@ -6,7 +6,7 @@ from fastvec import (
     simple_preprocessing,
     Tokens,
     TrainingSet,
-    train_word2vec,
+    Embedding,
 )
 from utils import (
     wall_time,
@@ -54,12 +54,7 @@ def train_on_food_reviews(model: FastvecModel, examples: TrainingSet) -> Fastvec
     Returns:
         FastvecModel: Trained FastVec model.
     """
-    model.embeddings = train_word2vec(
-        examples,
-        embedding_dim=model.embedding_dim,
-        epochs=model.epochs,
-        lr=model.lr,
-    )
+    return model._train(examples)
 
 
 @wall_time("walltimes/fastvec_food_reviews.txt")
@@ -111,7 +106,9 @@ def main() -> None:
     model = to_pascal_case(args.model)
     model = globals()[model](embedding_dim=args.embedding_dim, epochs=10)
     examples = build_training_set(model, tokens)
-    train_on_food_reviews(model, examples)
+    out = train_on_food_reviews(model, examples)
+    model.embeddings = Embedding(model.embedding_dim)
+    model.embeddings.add_vectors(out)
 
     # Example usage: Get embeddings for a specific review
     inference(model, test_reviews)

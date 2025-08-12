@@ -4,8 +4,9 @@ mod builder;
 mod doc2vec;
 mod embedding;
 mod preprocessing;
+mod utils;
 mod vocab;
-mod word2vec;
+pub mod word2vec;
 
 use builder::Builder;
 use builder::TrainingSet;

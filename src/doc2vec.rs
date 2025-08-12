@@ -1,4 +1,4 @@
-use crate::word2vec::{binary_entropy_grad, binary_entropy_loss, sigmoid, GradVars, Layer};
+use crate::utils::{binary_entropy_grad, binary_entropy_loss, sigmoid, GradVars, Layer};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::collections::HashMap;
 
