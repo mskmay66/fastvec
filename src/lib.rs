@@ -73,7 +73,7 @@ pub fn infer_doc_vectors(
     let num_samples = word_embeddings.len();
     let dim = word_embeddings[0].len();
     let mut doc_layer = DocumentLayer::new(dim, lr);
-    let mut doc_embedding: Array2<f32> = Array2::random((num_samples, 1), Uniform::new(-1.0, 1.0));
+    let doc_embedding: Array2<f32> = Array2::random((num_samples, 1), Uniform::new(-1.0, 1.0));
     let mut out: Array2<f32> = Array2::zeros((num_samples, dim));
     let word_vectors: Array2<f32> = Array2::from_shape_vec(
         (num_samples, dim),

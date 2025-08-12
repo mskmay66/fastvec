@@ -1,4 +1,4 @@
-use crate::utils::{binary_entropy_grad, binary_entropy_loss, sigmoid, GradVars, Layer};
+use crate::utils::{binary_entropy_grad, sigmoid, GradVars, Layer};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
 use std::collections::HashMap;
 
@@ -66,6 +66,7 @@ impl DocumentLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::binary_entropy_loss;
 
     #[test]
     fn test_doc_layer_creation() {
@@ -132,7 +133,6 @@ mod tests {
         let word_embedding =
             Array2::from_shape_vec((2, 3), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
         let y_true = Array1::from_vec(vec![1, 0]);
-        let mut prev_loss = f32::MAX;
         for _ in 0..5 {
             let mut doc_vec = Array2::from_shape_vec((2, 1), vec![1.0, 1.0]).unwrap();
             doc_vec = d2v.forward(doc_vec.view(), word_embedding.view());
@@ -141,8 +141,6 @@ mod tests {
                 d2v.grad_vars["sigmoid_output"].unwrap_arr1(),
             );
             println!("Current loss: {}", loss);
-            // assert!(loss < prev_loss, "Loss did not decrease: {} >= {}", loss, prev_loss);
-            prev_loss = loss;
             let _ = d2v.backward(y_true.clone());
         }
     }

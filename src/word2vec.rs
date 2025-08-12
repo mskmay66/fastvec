@@ -1,12 +1,9 @@
 extern crate ndarray;
 
 use ndarray::{Array1, Array2, ArrayView2, Axis};
-use ndarray_rand::rand_distr::Uniform;
-use ndarray_rand::RandomExt;
-use rayon::prelude::*;
 use std::collections::HashMap;
 
-use crate::utils::{binary_entropy_grad, binary_entropy_loss, sigmoid, GradVars, Layer};
+use crate::utils::{binary_entropy_grad, sigmoid, GradVars, Layer};
 
 pub struct W2V {
     pub embedding_dim: usize,
@@ -110,6 +107,7 @@ impl W2V {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::binary_entropy_loss;
 
     #[test]
     fn test_w2v_creation() {
@@ -191,7 +189,6 @@ mod tests {
         let input = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
         let target = Array2::from_shape_vec((5, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0]).unwrap();
         let y_true = Array1::from_vec(vec![0, 1, 0, 0, 1]);
-        let mut prev_loss = f32::MAX;
         for _ in 0..5 {
             let _ = w2v.forward(input.view(), target.view()).unwrap();
             let loss = binary_entropy_loss(
@@ -199,8 +196,6 @@ mod tests {
                 w2v.grad_vars["sigmoid_output"].unwrap_arr1(),
             );
             println!("Current loss: {}", loss);
-            // assert!(loss < prev_loss, "Loss did not decrease: {} >= {}", loss, prev_loss);
-            prev_loss = loss;
             let _ = w2v.backward(y_true.clone());
         }
     }

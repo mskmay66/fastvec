@@ -4,7 +4,6 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 fn negative_sample(
-    window: Vec<usize>,
     input: usize,
     vocabulary: &Vocab,
     num_samples: usize,
@@ -186,7 +185,7 @@ impl Builder {
                         let input = *pair[0];
                         let context = *pair[1];
                         let mut examples = vec![(input, context, 1)];
-                        examples.extend(negative_sample(w.to_vec(), input, &self.vocab, num_neg));
+                        examples.extend(negative_sample(input, &self.vocab, num_neg));
                         examples
                     })
             })
@@ -350,7 +349,7 @@ mod tests {
         let mut documents = generate_random_documents(25, 1000);
         documents.push(documents[0].clone()); // Add a duplicate document to test deduplication
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 2);
-        let samples = negative_sample(vec![0, 1], 0, &vocab, 2);
+        let samples = negative_sample(0, &vocab, 2);
         assert_eq!(samples.len(), 2);
         for (input, sample, label) in samples {
             assert_eq!(input, 0);
