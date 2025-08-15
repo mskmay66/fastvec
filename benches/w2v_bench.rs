@@ -2,6 +2,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::{Array1, Array2};
 use std::hint::black_box;
 
+use fastvec::builder::TrainingSet;
+use fastvec::train_word2vec;
 use fastvec::word2vec::W2V;
 
 fn forward_benchmark(c: &mut Criterion) {
@@ -26,5 +28,29 @@ fn backward_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, forward_benchmark, backward_benchmark);
+fn train_benchmark(c: &mut Criterion) {
+    let training_set = TrainingSet::new(
+        vec![1, 2, 3, 4, 5],
+        vec![2, 3, 4, 5, 6],
+        vec![1, 1, 1, 1, 1],
+        Some(5),
+    );
+    c.bench_function("train_word2vec", |b| {
+        b.iter(|| {
+            train_word2vec(
+                black_box(training_set.clone()),
+                black_box(5),
+                black_box(0.01),
+                black_box(10),
+            )
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    forward_benchmark,
+    backward_benchmark,
+    train_benchmark
+);
 criterion_main!(benches);

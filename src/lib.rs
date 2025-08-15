@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-mod builder;
+pub mod builder;
 mod doc2vec;
 mod embedding;
 mod preprocessing;

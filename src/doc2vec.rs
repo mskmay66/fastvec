@@ -42,20 +42,15 @@ impl DocumentLayer {
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        let loss: Array2<f32> =
-            binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1())
-                .insert_axis(Axis(1));
+        let loss: f32 = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1());
 
-        let doc_bias_grad = self.grad_vars["word_embedding"]
-            .unwrap_arr2()
-            .sum_axis(Axis(0)); // sum over all word embeddings
+        let doc_bias_grad = self.grad_vars["word_embedding"].unwrap_arr2();
 
-        let doc_loss = loss.dot(&doc_bias_grad.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
+        let doc_loss = loss * doc_bias_grad; // gradient w.r.t. input word embedding
         let doc_grad = doc_loss.t().dot(&self.grad_vars["input"].unwrap_arr2()); // gradient w.r.t. input layer weights
 
         // update weights and biases
         self.layer.weights -= &(doc_grad * self.lr).t();
-        self.layer.biases -= &(doc_bias_grad * self.lr);
 
         // update grad_vars
         self.grad_vars.clear();
@@ -72,7 +67,6 @@ mod tests {
     fn test_doc_layer_creation() {
         let doc_layer = DocumentLayer::new(3, 0.01);
         assert_eq!(doc_layer.layer.weights.shape(), &[1, 3]);
-        assert_eq!(doc_layer.layer.biases.shape(), &[1, 3]);
         assert_eq!(doc_layer.lr, 0.01);
     }
 
@@ -124,7 +118,6 @@ mod tests {
         doc_layer.backward(y_true).expect("Backward pass failed");
 
         assert_eq!(doc_layer.layer.weights.shape(), &[1, 3]);
-        assert_eq!(doc_layer.layer.biases.shape(), &[1, 3]);
     }
 
     #[test]

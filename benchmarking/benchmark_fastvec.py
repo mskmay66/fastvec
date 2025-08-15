@@ -1,120 +1,97 @@
-from argparse import ArgumentParser
-from typing import List
-
+import pyperf
 from fastvec import (
     FastvecModel,
+    Word2Vec,
+    Doc2Vec,
     simple_preprocessing,
     Tokens,
     TrainingSet,
-    Embedding,
+    train_word2vec,
 )
-from utils import (
-    wall_time,
-    load_food_reviews,
-    to_pascal_case,
-    load_wall_times,
-    train_test_split,
-)
+from utils import load_food_reviews, train_test_split
 
 
-@wall_time("walltimes/fastvec_food_reviews.txt")
-def preprocess_reviews(reviews: List[str]) -> List[str]:
-    """
-    Preprocess food reviews by tokenizing and removing punctuation.
+# def parse_args():
+#     parser = ArgumentParser(description="Benchmark FastVec on food reviews")
+#     parser.add_argument(
+#         "--embedding_dim", type=int, default=64, help="Dimension of the embeddings")
+#     parser.add_argument(
+#         "-p",
+#         "--path",
+#         type=str,
+#         default="food_reviews.csv",
+#         help="Path to the food reviews CSV file",
+#     )
+#     parser.add_argument(
+#         "-m",
+#         "--model",
+#         type=str,
+#         choices=["doc2vec", "word2vec"],
+#         default="doc2vec",
+#         help="Model to use for training",
+#     )
+#     return parser.parse_args()
 
-    Args:
-        reviews (List[str]): List of food reviews.
 
-    Returns:
-        List[str]: Preprocessed food reviews.
-    """
-    return simple_preprocessing(reviews, deacc=True)
-
-
-@wall_time("walltimes/fastvec_food_reviews.txt")
-def build_training_set(
-    model: FastvecModel, tokens: Tokens, window_size: int = 5
-) -> None:
-    model.build_vocab(tokens.flatten())
-    examples = model.build_training_set(tokens.tokens, window_size)
-    return examples
-
-
-@wall_time("walltimes/fastvec_food_reviews.txt")
-def train_on_food_reviews(model: FastvecModel, examples: TrainingSet) -> FastvecModel:
+def train(model: FastvecModel, examples: TrainingSet) -> FastvecModel:
     """
     Train a FastVec model on food reviews.
 
     Args:
         model (FastvecModel): FastVec model to train.
-        tokens (List[str]): Preprocessed food reviews.
-        embedding_dim (int): Dimension of the embeddings.
-        epochs (int): Number of training epochs.
+        examples (TrainingSet): Training set for the model.
 
     Returns:
         FastvecModel: Trained FastVec model.
     """
-    return model._train(examples)
+    model.embeddings = train_word2vec(
+        examples, model.embedding_dim, model.lr, model.epochs
+    )
 
 
-@wall_time("walltimes/fastvec_food_reviews.txt")
-def inference(model, inference_tokens):
+def inference(model: FastvecModel, inference_tokens: Tokens):
     """
-    Perform inference on the trained Doc2Vec model.
+    Perform inference on the trained FastVec model.
 
     Args:
-        model (Doc2Vec): Trained Doc2Vec model.
-        reviews (List[str]): List of food reviews to infer embeddings for.
+        model (FastvecModel): Trained FastVec model.
+        inference_tokens (Tokens): Tokens to infer embeddings for.
 
     Returns:
-        List[torch.Tensor]: List of embeddings for the provided reviews.
+        List[torch.Tensor]: List of embeddings for the provided tokens.
     """
     return model.get_embeddings(inference_tokens)
 
 
-def main() -> None:
-    parser = ArgumentParser(description="Benchmark FastVec on food reviews")
-    parser.add_argument(
-        "--embedding_dim", type=int, default=64, help="Dimension of the embeddings"
-    )
-    parser.add_argument(
-        "-p",
-        "--path",
-        type=str,
-        default="food_reviews.csv",
-        help="Path to the food reviews CSV file",
-    )
-    parser.add_argument(
-        "-m",
-        "--model",
-        type=str,
-        choices=["doc2vec", "word2vec"],
-        default="doc2vec",
-        help="Model to use for training",
-    )
-    args = parser.parse_args()
-
+def main():
+    path = "amazon-reviews/Reviews.csv"
+    model = "word2vec"
+    embedding_dim = 64
     # Load food reviews from a CSV file
-    reviews = load_food_reviews(args.path)
-
-    # seperate into train and test sets
+    reviews = load_food_reviews(path)
     train_reviews, test_reviews = train_test_split(reviews)
-    print(f"Train reviews: {len(train_reviews)}, Test reviews: {len(test_reviews)}")
-    tokens = preprocess_reviews(train_reviews)
 
-    # Train Doc2Vec model on the food reviews
-    model = to_pascal_case(args.model)
-    model = globals()[model](embedding_dim=args.embedding_dim, epochs=10)
-    examples = build_training_set(model, tokens)
-    out = train_on_food_reviews(model, examples)
-    model.embeddings = Embedding(model.embedding_dim)
-    model.embeddings.add_vectors(out)
+    tokens = simple_preprocessing(train_reviews, deacc=True)
 
-    # Example usage: Get embeddings for a specific review
-    inference(model, test_reviews)
+    runner = pyperf.Runner()
+    # Initialize FastVec model
+    model = (
+        Word2Vec(embedding_dim, epochs=10)
+        if model == "word2vec"
+        else Doc2Vec(embedding_dim, epochs=10)
+    )
+    model.build_vocab(tokens.flatten())
+    examples = model.build_training_set(tokens.tokens, window_size=5)
 
-    # read wall times and generate a report
-    load_wall_times("walltimes/fastvec_food_reviews.txt")
+    runner.bench_func("train_fastvec", train, model, examples)
+    model.train(tokens)
+
+    runner.bench_func(
+        "inference_fastvec",
+        inference,
+        model,
+        simple_preprocessing(test_reviews, deacc=True).flatten(),
+    )
 
 
 if __name__ == "__main__":

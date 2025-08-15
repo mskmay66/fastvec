@@ -2,8 +2,12 @@ use ndarray::{Array1, Array2, ArrayView2, Axis};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 
-pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> Array1<f32> {
-    pred - target.mapv(|x| x as f32)
+pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> f32 {
+    (pred - target.mapv(|x| x as f32))
+        .mean_axis(Axis(0))
+        .unwrap()
+        .into_scalar()
+        .max(0.0) // ensure non-negative gradient
 }
 
 pub fn binary_entropy_loss(target: Array1<u32>, pred: Array1<f32>) -> f32 {
@@ -27,18 +31,16 @@ fn xavier_uniform(shape: (usize, usize)) -> Array2<f32> {
 
 pub struct Layer {
     pub weights: Array2<f32>,
-    pub biases: Array2<f32>,
 }
 
 impl Layer {
     pub fn new(embedding_dim: usize) -> Self {
         let weights = xavier_uniform((1, embedding_dim));
-        let biases = xavier_uniform((1, embedding_dim));
-        Layer { weights, biases }
+        Layer { weights }
     }
 
     pub fn forward(&self, input: ArrayView2<f32>) -> Array2<f32> {
-        input.dot(&self.weights) + &self.biases
+        input.dot(&self.weights)
     }
 }
 
@@ -86,7 +88,6 @@ fn test_sigmoid() {
 fn test_layer_creation() {
     let layer = Layer::new(5);
     assert_eq!(layer.weights.shape(), &[1, 5]);
-    assert_eq!(layer.biases.shape(), &[1, 5]);
 }
 
 #[test]

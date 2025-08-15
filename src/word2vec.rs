@@ -1,6 +1,6 @@
 extern crate ndarray;
 
-use ndarray::{Array1, Array2, ArrayView2, Axis};
+use ndarray::{Array1, Array2, ArrayView2};
 use std::collections::HashMap;
 
 use crate::utils::{binary_entropy_grad, sigmoid, GradVars, Layer};
@@ -72,18 +72,12 @@ impl W2V {
     }
 
     pub fn backward(&mut self, y_true: Array1<u32>) -> Result<(), String> {
-        let loss: Array2<f32> =
-            binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1())
-                .insert_axis(Axis(1)); // gradient of binary cross-entropy loss
-        let context_sum = self.grad_vars["context_embedding"]
-            .unwrap_arr2()
-            .sum_axis(Axis(0)); // sum over all context embeddings
-        let input_sum = self.grad_vars["input_embedding"]
-            .unwrap_arr2()
-            .sum_axis(Axis(0)); // sum over all input embeddings
+        let loss: f32 = binary_entropy_grad(y_true, self.grad_vars["sigmoid_output"].unwrap_arr1()); // gradient of binary cross-entropy loss
+        let context_embedding = self.grad_vars["context_embedding"].unwrap_arr2();
+        let input_embedding = self.grad_vars["input_embedding"].unwrap_arr2();
 
-        let input_before_weights = loss.dot(&context_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. input word embedding
-        let target_before_weights = loss.dot(&input_sum.clone().insert_axis(Axis(0))); // gradient w.r.t. target word embedding
+        let input_before_weights = loss * context_embedding; // gradient w.r.t. input word embedding
+        let target_before_weights = loss * input_embedding; // gradient w.r.t. target word embedding
         let input = self.grad_vars["input"].unwrap_arr2();
         let context = self.grad_vars["context"].unwrap_arr2();
 
@@ -93,9 +87,7 @@ impl W2V {
         let input_grad = it.dot(&input_before_weights); // gradient w.r.t. input layer weights
         let target_grad = ct.dot(&target_before_weights); // gradient w.r.t. target layer weights
 
-        // update weights and biases
-        self.input_layer.biases -= &(context_sum * self.lr);
-        self.context_layer.biases -= &(input_sum * self.lr);
+        // update weights
         self.input_layer.weights -= &(input_grad * self.lr);
         self.context_layer.weights -= &(target_grad * self.lr);
 
@@ -177,8 +169,6 @@ mod tests {
         let y_true = Array1::from_vec(vec![1, 0, 1, 0, 1, 1]);
         let result = w2v.backward(y_true);
         assert!(result.is_ok());
-        assert_eq!(w2v.input_layer.biases.shape(), &[1, 5]);
-        assert_eq!(w2v.context_layer.biases.shape(), &[1, 5]);
         assert_eq!(w2v.input_layer.weights.shape(), &[1, 5]);
         assert_eq!(w2v.context_layer.weights.shape(), &[1, 5]);
     }
