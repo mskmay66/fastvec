@@ -1,6 +1,6 @@
+use crate::data::Dataset;
 use crate::vocab::Vocab;
 use itertools::Itertools;
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -17,136 +17,6 @@ fn negative_sample(
         })
         .collect();
     samples
-}
-
-#[pyclass]
-#[derive(Clone)]
-pub struct TrainingSet {
-    #[pyo3(get)]
-    pub input_words: Vec<f32>,
-    #[pyo3(get)]
-    pub context_words: Vec<f32>,
-    #[pyo3(get)]
-    pub labels: Vec<u32>,
-    #[pyo3(get)]
-    pub batch_size: usize,
-    curr: usize,
-    next: usize,
-}
-
-#[pymethods]
-impl TrainingSet {
-    #[new]
-    pub fn new(
-        input_words: Vec<usize>,
-        context_words: Vec<usize>,
-        labels: Vec<u32>,
-        batch_size: Option<usize>,
-    ) -> Self {
-        let curr = 0;
-        let next = 0;
-        TrainingSet {
-            input_words: input_words.par_iter().map(|&x| x as f32).collect(),
-            context_words: context_words.par_iter().map(|&x| x as f32).collect(),
-            labels,
-            batch_size: 32, // Default batch size
-            curr,
-            next,
-        }
-    }
-
-    pub fn add_example(&mut self, input: usize, context: usize, label: u32) {
-        self.input_words.push(input as f32);
-        self.context_words.push(context as f32);
-        self.labels.push(label);
-    }
-
-    pub fn extend(&mut self, other: TrainingSet) -> PyResult<()> {
-        self.input_words.extend(other.input_words);
-        self.context_words.extend(other.context_words);
-        self.labels.extend(other.labels);
-        Ok(())
-    }
-
-    pub fn get_batch(&self, start: usize, end: usize) -> PyResult<(Vec<f32>, Vec<f32>, Vec<u32>)> {
-        if start >= self.input_words.len() || end > self.input_words.len() || start >= end {
-            return Err(pyo3::exceptions::PyIndexError::new_err(
-                "Invalid range for batch",
-            ));
-        }
-        let input_batch = self.input_words[start..end].to_vec();
-        let context_batch = self.context_words[start..end].to_vec();
-        let labels_batch = self.labels[start..end].to_vec();
-        Ok((input_batch, context_batch, labels_batch))
-    }
-
-    pub fn __len__(&self) -> usize {
-        self.input_words.len()
-    }
-
-    pub fn get_item(&self, idx: usize) -> PyResult<(f32, f32, u32)> {
-        if idx >= self.input_words.len() {
-            return Err(pyo3::exceptions::PyIndexError::new_err(
-                "Index out of range",
-            ));
-        }
-        Ok((
-            self.input_words[idx],
-            self.context_words[idx],
-            self.labels[idx],
-        ))
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.input_words.is_empty() && self.context_words.is_empty() && self.labels.is_empty()
-    }
-}
-
-impl TrainingSet {
-    pub fn get_arrays(&self) -> (Array2<f32>, Array2<f32>, Array1<u32>) {
-        let input_array: Array2<f32> =
-            Array2::from_shape_vec((self.input_words.len(), 1), self.input_words.clone()).unwrap();
-        let context_array: Array2<f32> =
-            Array2::from_shape_vec((self.context_words.len(), 1), self.context_words.clone())
-                .unwrap();
-        let label_array: Array1<u32> = Array1::from_vec(self.labels.clone());
-        (input_array, context_array, label_array)
-    }
-}
-
-impl Iterator for TrainingSet {
-    type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.curr >= self.input_words.len() {
-            return None;
-        }
-        if self.curr + self.batch_size > self.input_words.len() {
-            self.next = self.input_words.len();
-        } else {
-            self.next = self.curr + self.batch_size;
-        }
-
-        let (input, context, labels) = self.get_batch(self.curr, self.next).unwrap();
-        self.curr = self.next;
-        Some((input, context, labels))
-    }
-}
-
-impl<'a> IntoIterator for &'a TrainingSet {
-    type Item = (Vec<f32>, Vec<f32>, Vec<u32>);
-    type IntoIter = TrainingSet;
-
-    fn into_iter(self) -> Self::IntoIter {
-        TrainingSet {
-            input_words: self.input_words.clone(),
-            context_words: self.context_words.clone(),
-            labels: self.labels.clone(),
-            batch_size: self.batch_size,
-            curr: 0,
-            next: 0,
-        }
-    }
 }
 
 #[pyclass]
@@ -214,11 +84,7 @@ impl Builder {
         Ok((input, context, label))
     }
 
-    pub fn build_training(
-        &self,
-        num_neg: usize,
-        batch_size: Option<usize>,
-    ) -> PyResult<TrainingSet> {
+    pub fn build_training(&self, num_neg: usize, batch_size: Option<usize>) -> PyResult<Dataset> {
         let context_window: usize = self.window.unwrap_or(5);
         if self.documents.is_empty() {
             return Err(pyo3::exceptions::PyValueError::new_err(
@@ -261,7 +127,7 @@ impl Builder {
                     .expect("Failed to build example")
             })
             .fold(
-                || (TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size)),
+                || (Dataset::new(Vec::new(), Vec::new(), Vec::new())),
                 |mut acc, (input_words, context_words, labels)| {
                     acc.input_words.extend(input_words);
                     acc.context_words.extend(context_words);
@@ -270,7 +136,7 @@ impl Builder {
                 },
             )
             .reduce(
-                || TrainingSet::new(Vec::new(), Vec::new(), Vec::new(), batch_size),
+                || Dataset::new(Vec::new(), Vec::new(), Vec::new()),
                 |mut acc, training_set| {
                     acc.extend(training_set).unwrap();
                     acc
@@ -285,21 +151,6 @@ impl Builder {
         Ok(training_set)
     }
 }
-
-// // standard rust methods
-// impl Builder {
-//     pub fn get_arrays(&self) -> (Array2<f32>, Array2<f32>, Array1<u32>) {
-//         let input_words: Vec<f32> = self.documents.iter().flat_map(|doc| doc.iter().map(|s| s.len() as f32)).collect();
-//         let context_words: Vec<f32> = self.documents.iter().flat_map(|doc| doc.iter().map(|s| s.len() as f32)).collect();
-//         let labels: Vec<u32> = vec![1; input_words.len()]; // Dummy labels for now
-
-//         (
-//             Array2::from_shape_vec((self.documents.len(), 1), input_words).unwrap(),
-//             Array2::from_shape_vec((self.documents.len(), 1), context_words).unwrap(),
-//             Array1::from_vec(labels),
-//         )
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

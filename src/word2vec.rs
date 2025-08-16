@@ -1,7 +1,7 @@
 extern crate blas_src;
 extern crate ndarray;
 
-use ndarray::{Array1, Array2, ArrayView2};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::utils::{binary_entropy_grad, sigmoid, Layer};
 
@@ -28,7 +28,7 @@ impl W2V {
         &mut self,
         input: ArrayView2<f32>,
         context: ArrayView2<f32>,
-        y_true: Array1<u32>,
+        y_true: ArrayView1<f32>,
     ) -> Result<(), String> {
         // Forward pass
         let input_embedding = self.input_layer.forward(input);
@@ -81,9 +81,9 @@ mod tests {
         let mut w2v = W2V::new(5, 0.01);
         let input = Array2::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
         let context = Array2::from_shape_vec((3, 1), vec![4.0, 5.0, 6.0]).unwrap();
-        let y_true = Array1::from_vec(vec![1, 0, 1]);
+        let y_true = Array1::from_vec(vec![1.0, 0.0, 1.0]);
 
-        let result = w2v.train_batch(input.view(), context.view(), y_true);
+        let result = w2v.train_batch(input.view(), context.view(), y_true.view());
         assert!(result.is_ok());
     }
 
@@ -92,10 +92,10 @@ mod tests {
         let mut w2v = W2V::new(5, 0.01);
         let input = Array2::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
         let context = Array2::from_shape_vec((3, 1), vec![4.0, 5.0, 6.0]).unwrap();
-        let y_true = Array1::from_vec(vec![1, 0, 1]);
+        let y_true = Array1::from_vec(vec![1.0, 0.0, 1.0]);
 
         let _ = w2v
-            .train_batch(input.view(), context.view(), y_true)
+            .train_batch(input.view(), context.view(), y_true.view())
             .unwrap();
         let prediction = w2v.predict(input.view()).unwrap();
         assert_eq!(prediction.shape(), &[3, 5]);

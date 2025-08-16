@@ -27,7 +27,7 @@ impl DocumentLayer {
         let sig = sigmoid(sim);
 
         // backward pass
-        let loss: f32 = binary_entropy_grad(Array1::ones(num_samples), sig);
+        let loss: f32 = binary_entropy_grad(Array1::ones(num_samples).view(), sig);
         let doc_loss = loss * &word_embedding;
         let doc_grad = doc_loss.t().dot(&input); // gradient w.r.t. input layer weights
 

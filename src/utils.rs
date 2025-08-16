@@ -1,9 +1,9 @@
-use ndarray::{Array1, Array2, ArrayView2, Axis};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 
-pub fn binary_entropy_grad(target: Array1<u32>, pred: Array1<f32>) -> f32 {
-    (pred - target.mapv(|x| x as f32))
+pub fn binary_entropy_grad(target: ArrayView1<f32>, pred: Array1<f32>) -> f32 {
+    (pred - target)
         .mean_axis(Axis(0))
         .unwrap()
         .into_scalar()
@@ -42,6 +42,10 @@ impl Layer {
     pub fn forward(&self, input: ArrayView2<f32>) -> Array2<f32> {
         input.dot(&self.weights)
     }
+}
+
+pub fn array_to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
+    arr.rows().into_iter().map(|row| row.to_vec()).collect()
 }
 
 #[cfg(test)]

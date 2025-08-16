@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 pub mod builder;
+mod data;
 mod doc2vec;
 mod embedding;
 mod preprocessing;
@@ -9,54 +10,46 @@ mod vocab;
 pub mod word2vec;
 
 use builder::Builder;
-use builder::TrainingSet;
+use data::{DataLoader, Dataset};
 use doc2vec::DocumentLayer;
 use embedding::Embedding;
-use ndarray::{Array1, Array2};
+use ndarray::Array2;
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 use preprocessing::simple_preprocessing;
+use utils::array_to_vec;
 use vocab::Vocab;
 use word2vec::W2V;
 
 #[pyfunction]
 pub fn train_word2vec(
-    training_set: TrainingSet,
+    training_set: Dataset,
     embedding_dim: usize,
+    batch_size: Option<usize>,
     lr: f32,
     epochs: usize,
 ) -> PyResult<Embedding> {
     let mut w2v = W2V::new(embedding_dim, lr);
     let mut embeddings = Embedding::new(embedding_dim);
+    let loader = DataLoader::from_dataset(&training_set, batch_size.unwrap_or(32));
     for epoch in 0..epochs {
-        for (input, target, label) in &training_set {
-            // clearly this sucks
-            let input_array: Array2<f32> =
-                Array2::from_shape_vec((input.len(), 1), input.clone()).unwrap();
-            let target_array: Array2<f32> =
-                Array2::from_shape_vec((target.len(), 1), target.clone()).unwrap();
-            let label_array: Array1<u32> = Array1::from_vec(label.clone());
+        loader.iter().for_each(|(input, context, label)| {
+            let _ = w2v.train_batch(
+                input, context, label, // TODO rewrite grad function to accept view
+            );
 
-            let _ = w2v.train_batch(input_array.view(), target_array.view(), label_array);
-
-            // I feel like this could be optimized further
             if epoch == epochs - 1 {
-                let input_embedding = w2v.predict(input_array.view()).unwrap();
+                let embedding = w2v.predict(input).unwrap();
                 embeddings.add_vectors(
-                    input_array
-                        .mapv(|x| x as usize)
-                        .rows()
+                    array_to_vec(input.to_owned())
                         .into_iter()
-                        .map(|row| row[0])
+                        .flatten() // flatten inner Vecs
+                        .map(|x| x as usize) // cast f32 -> usize
                         .collect(),
-                    input_embedding
-                        .rows()
-                        .into_iter()
-                        .map(|row| row.to_vec())
-                        .collect(),
-                )?;
+                    array_to_vec(embedding),
+                );
             }
-        }
+        });
     }
     Ok(embeddings)
 }
@@ -85,7 +78,7 @@ pub fn infer_doc_vectors(
 
     let embeddings = doc_layer.predict(doc_embedding.view()).unwrap();
 
-    Ok(embeddings.outer_iter().map(|row| row.to_vec()).collect())
+    Ok(array_to_vec(embeddings))
 }
 
 #[pymodule]
@@ -93,7 +86,7 @@ fn fastvec(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Vocab>()?;
     m.add_class::<Embedding>()?;
     m.add_class::<Builder>()?;
-    m.add_class::<TrainingSet>()?;
+    m.add_class::<Dataset>()?;
     m.add_class::<preprocessing::Tokens>()?;
     m.add_function(wrap_pyfunction!(simple_preprocessing, m)?)?;
     m.add_function(wrap_pyfunction!(train_word2vec, m)?)?;
@@ -118,8 +111,10 @@ mod tests {
         let embedding_dim = 3;
         let lr = 0.01;
         let epochs = 1;
+        let batch_size = Some(2);
 
-        let embeddings = train_word2vec(training_set, embedding_dim, lr, epochs).unwrap();
+        let embeddings =
+            train_word2vec(training_set, embedding_dim, batch_size, lr, epochs).unwrap();
         println!("Embeddings: {:?}", embeddings.vectors);
         assert_eq!(embeddings.dim, embedding_dim);
         assert!(!embeddings.vectors.is_empty());
