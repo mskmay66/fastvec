@@ -76,9 +76,9 @@ def main():
     runner = pyperf.Runner()
     # Initialize FastVec model
     model = (
-        Word2Vec(embedding_dim, epochs=10)
+        Word2Vec(embedding_dim, epochs=5)
         if model == "word2vec"
-        else Doc2Vec(embedding_dim, epochs=10)
+        else Doc2Vec(embedding_dim, epochs=5)
     )
     model.build_vocab(tokens.flatten())
     examples = model.build_training_set(tokens.tokens, window_size=5)

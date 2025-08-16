@@ -16,12 +16,12 @@ echo "Inflating Amazon Reviews dataset..."
 echo "Make sure you have downloaded the dataset from https://www.kaggle.com/datasets/snap/amazon-fine-food-reviews and placed it in the current directory as 'amazon-reviews.zip'."
 unzip amazon-reviews.zip -d amazon-reviews
 
-python benchmark_fastvec.py --output fastvec_output.txt
+python benchmark_fastvec.py --output fastvec_output.txt --quiet
     # --path amazon-reviews/Reviews.csv \
     # --model $1 \
     # --embedding_dim $2 >> logs/benchmark_fastvec.log
 
-python benchmark_gensim.py --output gensim_output.txt
+python benchmark_gensim.py --output gensim_output.txt --quiet
 #     --path amazon-reviews/Reviews.csv \
 #     --model $1 \
 #     --embedding_dim $2 >> logs/benchmark_gensim.log

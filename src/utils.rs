@@ -44,27 +44,6 @@ impl Layer {
     }
 }
 
-pub enum GradVars {
-    Arr1(Array1<f32>),
-    Arr2(Array2<f32>),
-}
-
-impl GradVars {
-    pub fn unwrap_arr1(&self) -> Array1<f32> {
-        match self {
-            GradVars::Arr1(arr) => arr.clone(),
-            _ => panic!("Expected Arr1, found Arr2"),
-        }
-    }
-
-    pub fn unwrap_arr2(&self) -> Array2<f32> {
-        match self {
-            GradVars::Arr2(arr) => arr.clone(),
-            _ => panic!("Expected Arr2, found Arr1"),
-        }
-    }
-}
-
 #[cfg(test)]
 #[test]
 fn test_loss() {

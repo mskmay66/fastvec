@@ -85,7 +85,7 @@ def main():
             vector_size=embedding_dim,
             min_count=1,
             hs=0,
-            epochs=10,
+            epochs=5,
             negative=5,
         )
     else:
@@ -93,7 +93,7 @@ def main():
             vector_size=embedding_dim,
             min_count=5,
             hs=0,
-            epochs=10,
+            epochs=5,
             negative=5,
             sg=0,
         )

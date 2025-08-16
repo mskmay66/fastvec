@@ -30,21 +30,18 @@ pub fn train_word2vec(
     let mut embeddings = Embedding::new(embedding_dim);
     for epoch in 0..epochs {
         for (input, target, label) in &training_set {
+            // clearly this sucks
             let input_array: Array2<f32> =
                 Array2::from_shape_vec((input.len(), 1), input.clone()).unwrap();
             let target_array: Array2<f32> =
                 Array2::from_shape_vec((target.len(), 1), target.clone()).unwrap();
             let label_array: Array1<u32> = Array1::from_vec(label.clone());
 
-            // Forward pass
-            let input_embedding = w2v
-                .forward(input_array.view(), target_array.view())
-                .unwrap();
+            let _ = w2v.train_batch(input_array.view(), target_array.view(), label_array);
 
-            // Backward pass
-            let _ = w2v.backward(label_array);
-
+            // I feel like this could be optimized further
             if epoch == epochs - 1 {
+                let input_embedding = w2v.predict(input_array.view()).unwrap();
                 embeddings.add_vectors(
                     input_array
                         .mapv(|x| x as usize)
@@ -74,7 +71,6 @@ pub fn infer_doc_vectors(
     let dim = word_embeddings[0].len();
     let mut doc_layer = DocumentLayer::new(dim, lr);
     let doc_embedding: Array2<f32> = Array2::random((num_samples, 1), Uniform::new(-1.0, 1.0));
-    let mut out: Array2<f32> = Array2::zeros((num_samples, dim));
     let word_vectors: Array2<f32> = Array2::from_shape_vec(
         (num_samples, dim),
         word_embeddings.into_iter().flatten().collect(),
@@ -82,11 +78,14 @@ pub fn infer_doc_vectors(
     .unwrap();
 
     for _ in 0..epochs {
-        out = doc_layer.forward(doc_embedding.view(), word_vectors.view());
-        let _ = doc_layer.backward(Array1::ones(num_samples));
+        let _ = doc_layer
+            .train_batch(doc_embedding.view(), word_vectors.view())
+            .unwrap();
     }
 
-    Ok(out.outer_iter().map(|row| row.to_vec()).collect())
+    let embeddings = doc_layer.predict(doc_embedding.view()).unwrap();
+
+    Ok(embeddings.outer_iter().map(|row| row.to_vec()).collect())
 }
 
 #[pymodule]

@@ -6,25 +6,28 @@ use fastvec::builder::TrainingSet;
 use fastvec::train_word2vec;
 use fastvec::word2vec::W2V;
 
-fn forward_benchmark(c: &mut Criterion) {
+fn train_batch_benchmark(c: &mut Criterion) {
     let input = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
     let target = Array2::from_shape_vec((5, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0]).unwrap();
+    let label = Array1::from_vec(vec![1, 0, 1, 0, 1]);
     let mut w2v = W2V::new(5, 0.01);
-    c.bench_function("forward", |b| {
-        b.iter(|| w2v.forward(black_box(input.view()), black_box(target.view())))
+    c.bench_function("train_batch", |b| {
+        b.iter(|| {
+            w2v.train_batch(
+                black_box(input.view()),
+                black_box(target.view()),
+                black_box(label.clone()),
+            )
+        })
     });
 }
 
-fn backward_benchmark(c: &mut Criterion) {
+fn predict_benchmark(c: &mut Criterion) {
     let input = Array2::from_shape_vec((5, 1), vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
     let target = Array2::from_shape_vec((5, 1), vec![5.0, 4.0, 3.0, 2.0, 1.0]).unwrap();
     let mut w2v = W2V::new(5, 0.01);
-    let label = Array1::from_vec(vec![1, 0, 1, 0, 1]);
-    c.bench_function("backward", |b| {
-        b.iter(|| {
-            let _ = w2v.forward(input.view(), target.view()).unwrap();
-            w2v.backward(black_box(label.clone()))
-        })
+    c.bench_function("predict_word2vec", |b| {
+        b.iter(|| w2v.predict(black_box(input.view())))
     });
 }
 
@@ -49,8 +52,8 @@ fn train_benchmark(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    forward_benchmark,
-    backward_benchmark,
-    train_benchmark
+    train_batch_benchmark,
+    train_benchmark,
+    predict_benchmark
 );
 criterion_main!(benches);

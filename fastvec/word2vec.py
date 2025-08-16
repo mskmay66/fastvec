@@ -40,7 +40,7 @@ class Word2Vec(FastvecModel):
     """
 
     def __init__(
-        self, embedding_dim, epochs=100, lr=0.01, batch_size=128, min_count=5
+        self, embedding_dim, epochs=5, lr=0.01, batch_size=128, min_count=5
     ) -> None:
         super(Word2Vec, self).__init__()
         self.embedding_dim = embedding_dim
