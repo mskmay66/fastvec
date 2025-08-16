@@ -166,29 +166,6 @@ mod tests {
         assert_eq!(dataloader.batch_size, 2);
     }
 
-    // #[test]
-    // fn test_dataloader_next_batch() {
-    //     let dataset = Dataset::new(vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0], vec![1, 0, 1]);
-    //     let mut dataloader = DataLoader::from_dataset(&dataset, 2);
-    //     if let Some((input_batch, context_batch, labels_batch)) = dataloader.next_batch() {
-    //         assert_eq!(input_batch.shape(), (2, 1));
-    //         assert_eq!(context_batch.shape(), (2, 1));
-    //         assert_eq!(labels_batch.shape(), (2,));
-    //     } else {
-    //         panic!("Expected a batch but got None");
-    //     }
-    // }
-
-    // #[test]
-    // fn test_dataloader_shuffle() {
-    //     let dataset = Dataset::new(vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0], vec![1, 0, 1]);
-    //     let mut dataloader = DataLoader::from_dataset(&dataset, 2);
-    //     let (input_batch, context_batch, labels_batch) = dataloader.shuffle().unwrap();
-    //     assert_eq!(input_batch.shape(), (3, 1));
-    //     assert_eq!(context_batch.shape(), (3, 1));
-    //     assert_eq!(labels_batch.shape(), (3,));
-    // }
-
     #[test]
     fn test_dataloader_iterator() {
         let dataset = Dataset::new(vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0], vec![1, 0, 1]);
