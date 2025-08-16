@@ -1,0 +1,33 @@
+name: Rust Benchmarks
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - src/**
+      - fastvec/**
+      - tests/**
+      - .github/workflows/rust_bench.yml
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - src/**
+      - fastvec/**
+      - tests/**
+      - .github/workflows/rust_bench.yml
+jobs:
+  bench_rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: clippy, rustfmt
+      - name: Run benchmarks
+        run: |
+          cargo bench --release -- --nocapture
