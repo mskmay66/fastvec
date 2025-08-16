@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List
 import pickle
 
-from fastvec import Vocab, Builder, Tokens, TrainingSet, train_word2vec, Embedding
+from fastvec import Vocab, Builder, Tokens, Dataset, train_word2vec, Embedding
 from .model import FastvecModel
 
 
@@ -62,7 +62,7 @@ class Word2Vec(FastvecModel):
 
     def build_training_set(
         self, documents: List[List[str]], window_size: int = 5, num_neg_samples: int = 5
-    ) -> TrainingSet:
+    ) -> Dataset:
         """
         Build the training set from the provided data.
 
@@ -71,7 +71,7 @@ class Word2Vec(FastvecModel):
             window_size (int): Size of the context window.
 
         Returns:
-            TrainingSet: The training set containing word pairs and their contexts.
+            Dataset: The training set containing word pairs and their contexts.
         """
         builder = Builder(documents, self.vocab, window_size)
         return builder.build_training(
