@@ -5,7 +5,7 @@ from fastvec import (
     Doc2Vec,
     simple_preprocessing,
     Tokens,
-    TrainingSet,
+    Dataset,
     train_word2vec,
 )
 from utils import load_food_reviews, train_test_split
@@ -33,19 +33,19 @@ from utils import load_food_reviews, train_test_split
 #     return parser.parse_args()
 
 
-def train(model: FastvecModel, examples: TrainingSet) -> FastvecModel:
+def train(model: FastvecModel, examples: Dataset) -> FastvecModel:
     """
     Train a FastVec model on food reviews.
 
     Args:
         model (FastvecModel): FastVec model to train.
-        examples (TrainingSet): Training set for the model.
+        examples (Dataset): Training set for the model.
 
     Returns:
         FastvecModel: Trained FastVec model.
     """
     model.embeddings = train_word2vec(
-        examples, model.embedding_dim, model.lr, model.epochs
+        examples, model.embedding_dim, 128, model.lr, model.epochs
     )
 
 
@@ -82,6 +82,8 @@ def main():
     )
     model.build_vocab(tokens.flatten())
     examples = model.build_training_set(tokens.tokens, window_size=5)
+
+    print("Vocab length:", len(model.vocab.valid_ids))
 
     runner.bench_func("train_fastvec", train, model, examples)
     model.train(tokens)

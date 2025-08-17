@@ -32,7 +32,15 @@ impl Tokenizer {
         self
     }
 
-    pub fn tokenize(&self, text: &str) -> Vec<String> {
+    pub fn tokenize(
+        &self,
+        text: &str,
+        min_len: Option<usize>,
+        max_len: Option<usize>,
+    ) -> Vec<String> {
+        let min_len = min_len.unwrap_or(2);
+        let max_len = max_len.unwrap_or(15);
+        let PAT_ALPHABETIC = Regex::new(r"\p{Letter}+").expect("Invalid regex pattern");
         let raw: Vec<String> = if let Some(ref re) = self.split_pattern {
             re.split(text)
                 .filter(|s| !s.is_empty())
@@ -51,6 +59,13 @@ impl Tokenizer {
                     s = s.to_lowercase();
                 }
                 s
+            })
+            .filter(|s| {
+                if s.is_empty() {
+                    false
+                } else {
+                    s.len() >= min_len && s.len() <= max_len && PAT_ALPHABETIC.is_match(&s)
+                }
             })
             .collect()
     }
@@ -134,7 +149,10 @@ pub fn simple_preprocessing(
     if let Some(p) = split_pattern {
         tok = tok.split_regex(&p);
     }
-    let tokens = corpus.par_iter().map(|doc| tok.tokenize(doc)).collect();
+    let tokens = corpus
+        .par_iter()
+        .map(|doc| tok.tokenize(doc, Some(2), Some(15)))
+        .collect();
     Ok(Tokens::new(tokens))
 }
 
@@ -151,19 +169,37 @@ mod tests {
     #[test]
     fn test_tokenizer_defaults() {
         let t = Tokenizer::new();
-        assert_eq!(t.tokenize("Hello WORLD!"), vec!["hello", "world!"]);
+        assert_eq!(
+            t.tokenize("Hello WORLD!", Some(2), Some(15)),
+            vec!["hello", "world!"]
+        );
     }
 
     #[test]
     fn test_tokenizer_deaccent_lowercase() {
         let t = Tokenizer::new().deaccent(true).lowercase(true);
-        assert_eq!(t.tokenize("Éxâmple Déjà Vu"), vec!["example", "deja", "vu"]);
+        assert_eq!(
+            t.tokenize("Éxâmple Déjà Vu", Some(2), Some(15)),
+            vec!["example", "deja", "vu"]
+        );
+    }
+
+    #[test]
+    fn test_alphabets_only() {
+        let t = Tokenizer::new().deaccent(true).lowercase(true);
+        assert_eq!(
+            t.tokenize("Éxâmple Déjà Vu 123", Some(2), Some(15)),
+            vec!["example", "deja", "vu"]
+        );
     }
 
     #[test]
     fn test_tokenizer_split_regex() {
         let t = Tokenizer::new().split_regex(r"\W+");
-        assert_eq!(t.tokenize("Hello, world!"), vec!["hello", "world"]);
+        assert_eq!(
+            t.tokenize("Hello, world!", Some(2), Some(15)),
+            vec!["hello", "world"]
+        );
     }
 
     #[test]

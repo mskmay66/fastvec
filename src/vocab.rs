@@ -92,6 +92,7 @@ impl Vocab {
         let avoid_ids = avoid.unwrap_or(Vec::new());
         let mut max_iter = 0;
         let id = loop {
+            // let random_index = rng.random_range(0..(self.size));
             let random_index = self
                 .valid_ids
                 .choose(&mut rng)

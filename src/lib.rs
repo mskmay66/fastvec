@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
 pub mod builder;
-mod data;
+pub mod data;
 mod doc2vec;
 mod embedding;
 mod preprocessing;
@@ -34,9 +34,7 @@ pub fn train_word2vec(
     let loader = DataLoader::from_dataset(&training_set, batch_size.unwrap_or(32));
     for epoch in 0..epochs {
         loader.iter().for_each(|(input, context, label)| {
-            let _ = w2v.train_batch(
-                input, context, label, // TODO rewrite grad function to accept view
-            );
+            let _ = w2v.train_batch(input, context, label);
 
             if epoch == epochs - 1 {
                 let embedding = w2v.predict(input).unwrap();

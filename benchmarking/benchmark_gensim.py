@@ -109,6 +109,8 @@ def main():
     inference_tokens = [
         gensim.utils.simple_preprocess(review, deacc=True) for review in test_reviews
     ]
+
+    print("Nubmer of Gensim tokens:", len(model.wv))
     runner.bench_func("inference_gensim", inference, model, inference_tokens)
 
 

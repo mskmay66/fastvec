@@ -92,6 +92,7 @@ class Word2Vec(FastvecModel):
         self.embeddings = train_word2vec(
             examples,
             embedding_dim=self.embedding_dim,
+            batch_size=self.batch_size,
             epochs=self.epochs,
             lr=self.lr,
         )
