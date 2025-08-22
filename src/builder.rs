@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_build_example() {
-        let mut documents = generate_random_documents(25, 10);
+        let mut documents = generate_random_documents(25, 1000);
         documents.push(documents[0].clone()); // Add a duplicate document to test deduplication
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 2);
         let builder = Builder::new(documents, vocab, Some(5));
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_build_w2v_training() {
-        let mut documents = generate_random_documents(25, 100);
+        let mut documents = generate_random_documents(25, 1000);
         documents.push(documents[0].clone()); // Add a duplicate document to test deduplication
         let vocab = Vocab::from_words(documents.iter().flat_map(|doc| doc.clone()).collect(), 2);
         assert!(!vocab.word_to_id.is_empty());

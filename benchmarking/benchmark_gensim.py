@@ -100,15 +100,19 @@ def main():
     tokens = [
         gensim.utils.simple_preprocess(review, deacc=True) for review in train_reviews
     ]
+
     examples = (
         [TaggedDocument(tokens, [i]) for i, tokens in enumerate(tokens)]
         if model == "doc2vec"
         else tokens
     )
+
     runner.bench_func("train_gensim", train, model, examples)
     inference_tokens = [
         gensim.utils.simple_preprocess(review, deacc=True) for review in test_reviews
     ]
+
+    print("Vocab length:", len(model.wv.index_to_key))
 
     print("Nubmer of Gensim tokens:", len(model.wv))
     runner.bench_func("inference_gensim", inference, model, inference_tokens)

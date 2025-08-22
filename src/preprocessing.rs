@@ -62,9 +62,11 @@ impl Tokenizer {
             })
             .filter(|s| {
                 if s.is_empty() {
-                    false
+                    return false;
                 } else {
-                    s.len() >= min_len && s.len() <= max_len && PAT_ALPHABETIC.is_match(&s)
+                    return (s.chars().count() > min_len)
+                        && (s.chars().count() < max_len)
+                        && (PAT_ALPHABETIC.is_match(s));
                 }
             })
             .collect()
@@ -151,7 +153,7 @@ pub fn simple_preprocessing(
     }
     let tokens = corpus
         .par_iter()
-        .map(|doc| tok.tokenize(doc, Some(2), Some(15)))
+        .map(|doc| tok.tokenize(doc, None, None))
         .collect();
     Ok(Tokens::new(tokens))
 }
@@ -179,7 +181,7 @@ mod tests {
     fn test_tokenizer_deaccent_lowercase() {
         let t = Tokenizer::new().deaccent(true).lowercase(true);
         assert_eq!(
-            t.tokenize("Éxâmple Déjà Vu", Some(2), Some(15)),
+            t.tokenize("Éxâmple Déjà Vu", Some(1), Some(15)),
             vec!["example", "deja", "vu"]
         );
     }
@@ -188,7 +190,7 @@ mod tests {
     fn test_alphabets_only() {
         let t = Tokenizer::new().deaccent(true).lowercase(true);
         assert_eq!(
-            t.tokenize("Éxâmple Déjà Vu 123", Some(2), Some(15)),
+            t.tokenize("Éxâmple Déjà Vu 123", Some(1), Some(15)),
             vec!["example", "deja", "vu"]
         );
     }
@@ -206,5 +208,18 @@ mod tests {
     fn test_flatten() {
         let toks = Tokens::new(vec![vec!["a".into(), "b".into()], vec!["c".into()]]);
         assert_eq!(toks.flatten().unwrap(), vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_long_and_short() {
+        let toks = Tokens::new(vec![
+            vec!["short".into(), "longerword".into()],
+            vec!["a".into(), "exceedinglylongword".into()],
+        ]);
+        let t = Tokenizer::new().deaccent(true).lowercase(true);
+        assert_eq!(
+            t.tokenize("short longerword a exceedinglylongword", None, None),
+            vec!["short", "longerword"]
+        );
     }
 }

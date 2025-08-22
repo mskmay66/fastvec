@@ -122,15 +122,16 @@ fn subsample(
     vocab_size: usize,
     min_count: usize,
 ) -> Option<usize> {
-    let count = word_to_freq.get(token_id).unwrap_or(&0.1);
-    if *count < min_count as f64 {
+    let min_count = min_count as f64;
+    let count = word_to_freq.get(token_id).unwrap_or(&min_count);
+    if *count <= min_count {
         return None; // Skip subsampling for low-frequency words
     }
 
     let freq = count / vocab_size as f64;
-    let p = ((freq / 0.001).sqrt() + 1.0) * (0.001 / freq);
+    let p = 1.0 - (0.001 / freq).sqrt();
     let r: f64 = rand::random();
-    if r < p {
+    if r > p {
         return Some(*token_id);
     }
     None
