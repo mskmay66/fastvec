@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenizer_split_regex() {
+    fn contains_puncuation() {
         let t = Tokenizer::new().split_regex(r"\W+");
         assert_eq!(
             t.tokenize("Hello, world!", Some(2), Some(15)),

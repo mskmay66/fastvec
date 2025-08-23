@@ -83,7 +83,7 @@ def main():
     if model == "doc2vec":
         model = Doc2Vec(
             vector_size=embedding_dim,
-            min_count=1,
+            min_count=5,
             hs=0,
             epochs=5,
             negative=5,
@@ -112,9 +112,7 @@ def main():
         gensim.utils.simple_preprocess(review, deacc=True) for review in test_reviews
     ]
 
-    print("Vocab length:", len(model.wv.index_to_key))
-
-    print("Nubmer of Gensim tokens:", len(model.wv))
+    print("Number of Gensim tokens:", len(model.wv))
     runner.bench_func("inference_gensim", inference, model, inference_tokens)
 
 

@@ -129,7 +129,7 @@ fn subsample(
     }
 
     let freq = count / vocab_size as f64;
-    let p = 1.0 - (0.001 / freq).sqrt();
+    let p = 1.0 - (0.0001 / freq).sqrt();
     let r: f64 = rand::random();
     if r > p {
         return Some(*token_id);
@@ -229,5 +229,23 @@ mod tests {
         // Test with a frequency that should not be sampled
         word_to_freq.insert(3, 1.0);
         assert!(subsample(&3, &word_to_freq, vocab_size + 1, 5).is_none());
+    }
+
+    #[test]
+    fn no_dups() {
+        let words = vec![
+            "apple".to_string(),
+            "banana".to_string(),
+            "apple".to_string(),
+            "cherry".to_string(),
+            "banana".to_string(),
+            "cherry".to_string(),
+        ];
+        let vocab = Vocab::from_words(words, 5);
+        assert_eq!(vocab.size, 3);
+        assert_eq!(vocab.words, vec!["apple", "banana", "cherry"]);
+        assert_eq!(vocab.word_to_id.get("apple"), Some(&0));
+        assert_eq!(vocab.word_to_id.get("banana"), Some(&1));
+        assert_eq!(vocab.word_to_id.get("cherry"), Some(&2));
     }
 }

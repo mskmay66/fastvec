@@ -71,7 +71,10 @@ def main():
     reviews = load_food_reviews(path)
     train_reviews, test_reviews = train_test_split(reviews)
 
-    tokens = simple_preprocessing(train_reviews, deacc=True)
+    tokens = simple_preprocessing(
+        train_reviews, deacc=True, lowercase=True, split_pattern=r"\W+"
+    )
+    print(len(tokens.flatten()), "tokens in training set")
 
     runner = pyperf.Runner()
     # Initialize FastVec model
