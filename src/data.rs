@@ -53,9 +53,9 @@ impl Dataset {
 }
 
 pub struct DataLoader {
-    input_words: Array2<f32>,
-    context_words: Array2<f32>,
-    labels: Array1<f32>,
+    pub input_words: Array2<f32>,
+    pub context_words: Array2<f32>,
+    pub labels: Array1<f32>,
     batch_size: usize,
 }
 

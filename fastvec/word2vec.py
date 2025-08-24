@@ -90,9 +90,10 @@ class Word2Vec(FastvecModel):
         self.build_vocab(tokens.flatten())
         examples = self.build_training_set(tokens.tokens, window_size)
         self.embeddings = train_word2vec(
-            examples,
+            training_set=examples,
             embedding_dim=self.embedding_dim,
             batch_size=self.batch_size,
+            num_workers=3,
             epochs=self.epochs,
             lr=self.lr,
         )

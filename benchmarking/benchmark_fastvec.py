@@ -45,7 +45,7 @@ def train(model: FastvecModel, examples: Dataset) -> FastvecModel:
         FastvecModel: Trained FastVec model.
     """
     model.embeddings = train_word2vec(
-        examples, model.embedding_dim, 128, model.lr, model.epochs
+        examples, model.embedding_dim, 128, 3, model.lr, model.epochs
     )
 
 

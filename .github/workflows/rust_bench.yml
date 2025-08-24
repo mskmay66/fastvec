@@ -30,4 +30,4 @@ jobs:
           components: clippy, rustfmt
       - name: Run benchmarks
         run: |
-          cargo bench --release -- --nocapture
+          cargo bench -- --nocapture

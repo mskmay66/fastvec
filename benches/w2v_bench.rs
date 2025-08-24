@@ -43,6 +43,7 @@ fn train_benchmark(c: &mut Criterion) {
                 black_box(training_set.clone()),
                 black_box(5),
                 black_box(Some(2)),
+                black_box(None),
                 black_box(0.01),
                 black_box(10),
             )
