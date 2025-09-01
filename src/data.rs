@@ -146,7 +146,6 @@ impl<'a> Iterator for DataLoaderIter<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::array;
 
     #[test]
     fn test_dataset_creation() {

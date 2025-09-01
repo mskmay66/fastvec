@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_long_and_short() {
-        let toks = Tokens::new(vec![
+        let _ = Tokens::new(vec![
             vec!["short".into(), "longerword".into()],
             vec!["a".into(), "exceedinglylongword".into()],
         ]);

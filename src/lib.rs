@@ -19,69 +19,35 @@ use ndarray_rand::RandomExt;
 use preprocessing::simple_preprocessing;
 use utils::array_to_vec;
 use vocab::Vocab;
-use word2vec::{ParW2V, W2V};
-
-// #[pyfunction]
-// pub fn train_word2vec(
-//     training_set: Dataset,
-//     embedding_dim: usize,
-//     batch_size: Option<usize>,
-//     lr: f32,
-//     epochs: usize,
-// ) -> PyResult<Embedding> {
-//     let mut w2v = W2V::new(embedding_dim, lr);
-//     let mut embeddings = Embedding::new(embedding_dim);
-//     let loader = DataLoader::from_dataset(&training_set, batch_size.unwrap_or(32));
-//     for epoch in 0..epochs {
-//         loader.iter().for_each(|(input, context, label)| {
-//             let _ = w2v.train_batch(input, context, label);
-
-//             if epoch == epochs - 1 {
-//                 let embedding = w2v.predict(input).unwrap();
-//                 embeddings.add_vectors(
-//                     array_to_vec(input.to_owned())
-//                         .into_iter()
-//                         .flatten() // flatten inner Vecs
-//                         .map(|x| x as usize) // cast f32 -> usize
-//                         .collect(),
-//                     array_to_vec(embedding),
-//                 );
-//             }
-//         });
-//     }
-//     Ok(embeddings)
-// }
+use word2vec::W2V;
 
 #[pyfunction]
 pub fn train_word2vec(
     training_set: Dataset,
     embedding_dim: usize,
     batch_size: Option<usize>,
-    num_workers: Option<usize>,
+    num_train_workers: Option<usize>,
+    num_pred_workers: Option<usize>,
     lr: f32,
     epochs: usize,
 ) -> PyResult<Embedding> {
-    let mut w2v = ParW2V::new(embedding_dim, lr);
-    let mut embeddings = Embedding::new(embedding_dim);
-    let loader = DataLoader::from_dataset(&training_set, batch_size.unwrap_or(128));
+    let mut w2v = W2V::new(embedding_dim, lr);
+    let batch_size = batch_size.unwrap_or(128);
+    let num_train_workers = num_train_workers.unwrap_or(3);
+    let loader = DataLoader::from_dataset(&training_set, batch_size);
     for epoch in 0..epochs {
         let _ = w2v.train(
             loader.input_words.view(),
             loader.context_words.view(),
             loader.labels.view(),
-            num_workers.unwrap_or(3),
-            batch_size.unwrap_or(128),
+            num_train_workers,
+            batch_size,
         );
     }
-    let embedding = w2v.predict(loader.input_words.view()).unwrap();
-    embeddings.add_vectors(
-        array_to_vec(loader.input_words.to_owned())
-            .into_iter()
-            .flatten()
-            .map(|x| x as usize)
-            .collect(),
-        array_to_vec(embedding),
-    );
+    let num_pred_workers = num_pred_workers.unwrap_or(8);
+    let embeddings = w2v
+        .predict(loader.input_words.view(), batch_size, num_pred_workers)
+        .unwrap();
     Ok(embeddings)
 }
 
@@ -144,8 +110,16 @@ mod tests {
         let epochs = 1;
         let batch_size = Some(2);
 
-        let embeddings =
-            train_word2vec(training_set, embedding_dim, batch_size, None, lr, epochs).unwrap();
+        let embeddings = train_word2vec(
+            training_set,
+            embedding_dim,
+            batch_size,
+            Some(1),
+            Some(1),
+            lr,
+            epochs,
+        )
+        .unwrap();
         println!("Embeddings: {:?}", embeddings.vectors);
         assert_eq!(embeddings.dim, embedding_dim);
         assert!(!embeddings.vectors.is_empty());

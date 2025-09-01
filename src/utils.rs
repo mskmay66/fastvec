@@ -1,7 +1,6 @@
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
+use ndarray::{Array1, Array2, ArrayBase, ArrayView1, ArrayView2, Axis, Data, Ix2};
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
-use std::sync::{Arc, Mutex};
 
 pub fn binary_entropy_grad(target: ArrayView1<f32>, pred: Array1<f32>) -> f32 {
     (pred - target)
@@ -30,6 +29,7 @@ fn xavier_uniform(shape: (usize, usize)) -> Array2<f32> {
     Array2::random(shape, Uniform::new(-limit, limit))
 }
 
+#[derive(Clone)]
 pub struct Layer {
     pub weights: Array2<f32>,
 }
@@ -45,23 +45,10 @@ impl Layer {
     }
 }
 
-pub struct ParLayer {
-    pub weights: Arc<Mutex<Array2<f32>>>,
-}
-
-impl ParLayer {
-    pub fn new(embedding_dim: usize) -> Self {
-        let weights = Arc::new(Mutex::new(xavier_uniform((1, embedding_dim))));
-        ParLayer { weights }
-    }
-
-    pub fn forward(&self, input: ArrayView2<f32>) -> Array2<f32> {
-        let weights = self.weights.lock().unwrap();
-        input.dot(&*weights)
-    }
-}
-
-pub fn array_to_vec(arr: Array2<f32>) -> Vec<Vec<f32>> {
+pub fn array_to_vec<S>(arr: ArrayBase<S, Ix2>) -> Vec<Vec<f32>>
+where
+    S: Data<Elem = f32>,
+{
     arr.rows().into_iter().map(|row| row.to_vec()).collect()
 }
 

@@ -45,7 +45,6 @@ impl DocumentLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::binary_entropy_loss;
 
     #[test]
     fn test_doc_layer_creation() {

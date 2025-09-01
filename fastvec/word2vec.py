@@ -93,7 +93,8 @@ class Word2Vec(FastvecModel):
             training_set=examples,
             embedding_dim=self.embedding_dim,
             batch_size=self.batch_size,
-            num_workers=3,
+            num_train_workers=3,
+            num_pred_workers=3,
             epochs=self.epochs,
             lr=self.lr,
         )

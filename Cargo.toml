@@ -21,12 +21,14 @@ rayon = "1.10.0"
 regex = "1.11.1"
 unicode-normalization = "0.1.24"
 crossbeam = "0.8.4"
+crossbeam-channel = "0.5.15"
 
 [target.'cfg(macos)'.dependencies]
 blas-src = { version = "0.10.0", default-features = false, features = ["accelerate"] }
 
 [profile.release]
 codegen-units = 1
+lto = "fat"
 
 [dev-dependencies]
 criterion = "0.7.0"

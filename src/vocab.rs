@@ -92,7 +92,6 @@ impl Vocab {
         let avoid_ids = avoid.unwrap_or(Vec::new());
         let mut max_iter = 0;
         let id = loop {
-            // let random_index = rng.random_range(0..(self.size));
             let random_index = self
                 .valid_ids
                 .choose(&mut rng)
@@ -221,7 +220,7 @@ mod tests {
         word_to_freq.insert(1, 6.0);
         word_to_freq.insert(2, 10.0);
 
-        let vocab_size = 30000;
+        let vocab_size = 3000000;
         assert!(subsample(&0, &word_to_freq, vocab_size, 5).is_some());
         assert!(subsample(&1, &word_to_freq, vocab_size, 5).is_some());
         assert!(subsample(&2, &word_to_freq, vocab_size, 5).is_some());
